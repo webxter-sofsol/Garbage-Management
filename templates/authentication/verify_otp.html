@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Verify OTP - GCMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="mb-3">
+                        <i class="bi bi-envelope-check" style="font-size: 3rem; color: #198754;"></i>
+                    </div>
+                    <h2 class="text-success">Check Your Email</h2>
+                    <p class="text-muted">
+                        We've sent a 6-digit code to<br>
+                        <strong>{{ email }}</strong>
+                    </p>
+                </div>
+
+                <form method="post" id="otpForm" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="otp" class="form-label">Enter OTP Code</label>
+                        <input 
+                            type="text" 
+                            class="form-control form-control-lg text-center" 
+                            id="otp" 
+                            name="otp" 
+                            placeholder="000000"
+                            maxlength="6"
+                            pattern="[0-9]{6}"
+                            required
+                            autocomplete="off"
+                            style="letter-spacing: 0.5rem; font-size: 1.5rem;"
+                        >
+                        <div class="invalid-feedback">
+                            Please enter a valid 6-digit code.
+                        </div>
+                        <div class="form-text">
+                            The code expires in 10 minutes.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-lg w-100 mb-3">
+                        Verify & Login
+                    </button>
+                </form>
+
+                <div class="text-center">
+                    <p class="text-muted mb-2">Didn't receive the code?</p>
+                    <form method="post" action="{% url 'authentication:resend_otp' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-link text-success" id="resendBtn">
+                            Resend OTP
+                        </button>
+                    </form>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="{% url 'authentication:register' %}" class="text-muted small">
+                        Use a different email
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <p class="text-muted small">
+                <i class="bi bi-clock"></i> <span id="timer">Time remaining: 10:00</span>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-focus on OTP input
+document.getElementById('otp').focus();
+
+// Only allow numbers
+document.getElementById('otp').addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+    
+    // Auto-submit when 6 digits entered
+    if (this.value.length === 6) {
+        // Validate first
+        const form = document.getElementById('otpForm');
+        if (form.checkValidity()) {
+            form.submit();
+        }
+    }
+});
+
+// Form validation
+document.getElementById('otpForm').addEventListener('submit', function(event) {
+    const otpInput = document.getElementById('otp');
+    const otp = otpInput.value.trim();
+    
+    if (otp.length !== 6 || !/^[0-9]{6}$/.test(otp)) {
+        event.preventDefault();
+        event.stopPropagation();
+        otpInput.classList.add('is-invalid');
+    } else {
+        otpInput.classList.remove('is-invalid');
+        otpInput.classList.add('is-valid');
+    }
+    
+    this.classList.add('was-validated');
+});
+
+// Countdown timer (10 minutes)
+let timeLeft = 600; // 10 minutes in seconds
+const timerElement = document.getElementById('timer');
+
+function updateTimer() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    timerElement.textContent = `Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    if (timeLeft <= 0) {
+        timerElement.textContent = 'Code expired';
+        timerElement.classList.add('text-danger');
+        document.getElementById('otp').disabled = true;
+        document.querySelector('button[type="submit"]').disabled = true;
+    } else {
+        timeLeft--;
+    }
+}
+
+// Update timer every second
+setInterval(updateTimer, 1000);
+updateTimer();
+
+// Resend button cooldown
+let resendCooldown = 0;
+const resendBtn = document.getElementById('resendBtn');
+
+resendBtn.addEventListener('click', function() {
+    if (resendCooldown > 0) {
+        return false;
+    }
+    
+    resendCooldown = 60;
+    this.disabled = true;
+    
+    const originalText = this.textContent;
+    const interval = setInterval(() => {
+        this.textContent = `Resend OTP (${resendCooldown}s)`;
+        resendCooldown--;
+        
+        if (resendCooldown <= 0) {
+            clearInterval(interval);
+            this.textContent = originalText;
+            this.disabled = false;
+            
+            // Reset timer
+            timeLeft = 600;
+            timerElement.classList.remove('text-danger');
+            document.getElementById('otp').disabled = false;
+            document.querySelector('button[type="submit"]').disabled = false;
+        }
+    }, 1000);
+});
+</script>
+{% endblock %}

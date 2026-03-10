@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pickup Request {{ pickup_request.request_id }} - GCMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>{{ pickup_request.request_id }}</h5>
+                <span class="badge bg-{{ pickup_request.status }} status-{{ pickup_request.status }}">
+                    {{ pickup_request.get_status_display }}
+                </span>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Waste Type</h6>
+                    <p class="card-text">
+                        <i class="bi bi-trash"></i> {{ pickup_request.get_waste_type_display }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Preferred Date & Time</h6>
+                    <p class="card-text mb-1">
+                        <i class="bi bi-calendar"></i> {{ pickup_request.preferred_date|date:"M d, Y" }}
+                    </p>
+                    {% if pickup_request.preferred_time %}
+                    <p class="card-text">
+                        <i class="bi bi-clock"></i> {{ pickup_request.preferred_time|time:"H:i" }}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Pickup Location</h6>
+                    <p class="card-text">
+                        <i class="bi bi-geo-alt"></i> {{ pickup_request.address|default:"Location not available" }}
+                    </p>
+                    {% if pickup_request.address %}
+                    <small class="text-muted">{{ pickup_request.latitude }}, {{ pickup_request.longitude }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if pickup_request.notes %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Additional Notes</h6>
+                    <p class="card-text">{{ pickup_request.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Request Details</h6>
+                    <p class="mb-1"><strong>Submitted:</strong> {{ pickup_request.created_at|date:"M d, Y H:i" }}</p>
+                    {% if pickup_request.scheduled_date %}
+                    <p class="mb-1"><strong>Scheduled for:</strong> {{ pickup_request.scheduled_date|date:"M d, Y" }}</p>
+                    {% endif %}
+                    {% if pickup_request.assigned_staff %}
+                    <p class="mb-1"><strong>Assigned to:</strong> {{ pickup_request.assigned_staff.name }}</p>
+                    {% endif %}
+                    {% if pickup_request.completed_at %}
+                    <p class="mb-0"><strong>Completed:</strong> {{ pickup_request.completed_at|date:"M d, Y H:i" }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <a href="{% url 'pickups:my_requests' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to My Requests
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

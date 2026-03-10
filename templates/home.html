@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Home - GCMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if user.is_authenticated %}
+        <!-- User Dashboard -->
+        <div class="row g-3">
+            {% if user.is_citizen %}
+                <div class="col-12">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-recycle" style="font-size: 3rem;"></i>
+                            <h4 class="mt-3 mb-2">Keep Your City Clean</h4>
+                            <p class="mb-0">Report issues and track complaints easily</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-6">
+                    <a href="{% url 'complaints:create' %}" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-exclamation-triangle text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Report Issue</h6>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-6">
+                    <a href="{% url 'complaints:my_complaints' %}" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-list-check text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">My Complaints</h6>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-6">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-geo-alt text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Bin Locations</h6>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-6">
+                    <a href="{% url 'pickups:create' %}" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-calendar-check text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Schedule Pickup</h6>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-6">
+                    <a href="{% url 'pickups:my_requests' %}" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clock-history text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">My Pickups</h6>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+            {% elif user.is_authority %}
+                <div class="col-12">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-clipboard-data" style="font-size: 3rem;"></i>
+                            <h4 class="mt-3 mb-2">Authority Dashboard</h4>
+                            <p class="mb-0">Manage complaints and monitor operations</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-6">
+                    <a href="{% url 'complaints:authority_dashboard' %}" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clipboard-data text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Complaints</h6>
+                                <p class="text-muted small mb-0">View all</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-6">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-people text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Staff</h6>
+                                <p class="text-muted small mb-0">Track team</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-12">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-graph-up text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Analytics Dashboard</h6>
+                                <p class="text-muted small mb-0">View performance metrics</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+            {% elif user.is_staff_member %}
+                <div class="col-12">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-clipboard-check" style="font-size: 3rem;"></i>
+                            <h4 class="mt-3 mb-2">Staff Dashboard</h4>
+                            <p class="mb-0">Manage your assignments</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-12">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clipboard-check text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">My Assignments</h6>
+                                <p class="text-muted small mb-0">View assigned complaints</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="col-12">
+                    <a href="#" class="text-decoration-none">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-geo text-success" style="font-size: 2.5rem;"></i>
+                                <h6 class="mt-3 mb-0">Update Location</h6>
+                                <p class="text-muted small mb-0">Share your current location</p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- Welcome Screen for Non-authenticated Users -->
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="bi bi-recycle text-success" style="font-size: 5rem;"></i>
+                    <h1 class="mt-4 mb-3">Welcome to GCMS</h1>
+                    <p class="lead text-muted mb-4">Making waste management transparent, efficient, and collaborative</p>
+                    <a class="btn btn-success btn-lg" href="{% url 'authentication:register' %}">Get Started</a>
+                </div>
+            </div>
+            
+            <!-- Features -->
+            <div class="col-12 mt-4">
+                <div class="card">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-phone text-success" style="font-size: 2.5rem;"></i>
+                        <h5 class="mt-3">Mobile Friendly</h5>
+                        <p class="text-muted mb-0">Report issues on the go with GPS support</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-bell text-success" style="font-size: 2.5rem;"></i>
+                        <h5 class="mt-3">Real-time Updates</h5>
+                        <p class="text-muted mb-0">Get notified about complaint status changes</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-4">
+                        <i class="bi bi-shield-check text-success" style="font-size: 2.5rem;"></i>
+                        <h5 class="mt-3">Secure & Private</h5>
+                        <p class="text-muted mb-0">Your data is encrypted and protected</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

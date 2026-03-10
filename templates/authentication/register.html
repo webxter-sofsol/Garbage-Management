@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Register / Login - GCMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <h2 class="text-success">Welcome to GCMS</h2>
+                    <p class="text-muted">Enter your email to get started</p>
+                </div>
+
+                <form method="post" id="registerForm" novalidate>
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input 
+                            type="email" 
+                            class="form-control form-control-lg" 
+                            id="email" 
+                            name="email" 
+                            placeholder="your.email@example.com"
+                            required
+                            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                        >
+                        <div class="invalid-feedback">
+                            Please enter a valid email address.
+                        </div>
+                        <div class="form-text">
+                            We'll send you a one-time password (OTP) to verify your email.
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-lg w-100" id="submitBtn">
+                        <span id="btnText">Continue</span>
+                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                        <span id="btnLoadingText" class="d-none">Sending OTP...</span>
+                    </button>
+                </form>
+
+                <div class="text-center mt-4">
+                    <p class="text-muted small">
+                        By continuing, you agree to our Terms of Service and Privacy Policy.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-3">
+            <p class="text-muted">
+                <i class="bi bi-shield-check"></i> Your data is secure and encrypted
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Client-side email validation
+document.getElementById('registerForm').addEventListener('submit', function(event) {
+    const emailInput = document.getElementById('email');
+    const email = emailInput.value.trim().toLowerCase();
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const btnLoadingText = document.getElementById('btnLoadingText');
+    
+    // Update input value to lowercase
+    emailInput.value = email;
+    
+    // RFC 5322 email validation pattern
+    const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+    
+    if (!emailPattern.test(email)) {
+        event.preventDefault();
+        event.stopPropagation();
+        emailInput.classList.add('is-invalid');
+    } else {
+        emailInput.classList.remove('is-invalid');
+        emailInput.classList.add('is-valid');
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        btnText.classList.add('d-none');
+        btnSpinner.classList.remove('d-none');
+        btnLoadingText.classList.remove('d-none');
+    }
+    
+    this.classList.add('was-validated');
+});
+
+// Real-time validation
+document.getElementById('email').addEventListener('input', function() {
+    const email = this.value.trim().toLowerCase();
+    const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+    
+    if (emailPattern.test(email)) {
+        this.classList.remove('is-invalid');
+        this.classList.add('is-valid');
+    } else if (email.length > 0) {
+        this.classList.remove('is-valid');
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-valid', 'is-invalid');
+    }
+});
+</script>
+{% endblock %}

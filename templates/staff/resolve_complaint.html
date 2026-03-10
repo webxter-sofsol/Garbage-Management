@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Resolve Complaint {{ complaint.complaint_id }} - GCMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5>Resolve Complaint: {{ complaint.complaint_id }}</h5>
+                <a href="{% url 'staff:my_assignments' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Assignments
+                </a>
+            </div>
+
+            <!-- Complaint Details -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-3 text-muted">Complaint Details</h6>
+                    <p class="mb-2"><strong>Description:</strong> {{ complaint.description }}</p>
+                    <p class="mb-2"><strong>Location:</strong> {{ complaint.address|default:"Location not available" }}</p>
+                    <p class="mb-2"><strong>Submitted:</strong> {{ complaint.created_at|date:"M d, Y H:i" }}</p>
+                    <p class="mb-0"><strong>Status:</strong> 
+                        <span class="badge bg-{{ complaint.status }} status-{{ complaint.status }}">
+                            {{ complaint.get_status_display }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Before Photos -->
+            {% if before_photos %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-3 text-muted">Before Photos (Reference)</h6>
+                    <div class="row g-2">
+                        {% for photo in before_photos %}
+                        <div class="col-md-4 col-6">
+                            <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="Before photo" 
+                                 style="cursor: pointer;" onclick="openImageModal('{{ photo.photo.url }}')">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Resolution Form -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-3 text-muted">Mark as Resolved</h6>
+                    
+                    <div id="resolutionMessage" class="alert d-none"></div>
+                    
+                    <form id="resolutionForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="afterPhotos" class="form-label">
+                                After Photos <span class="text-danger">*</span>
+                            </label>
+                            <input type="file" class="form-control" id="afterPhotos" name="after_photos" 
+                                   accept="image/jpeg,image/png,image/webp" multiple required>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> 
+                                Upload at least one photo showing the resolved issue. 
+                                Accepted formats: JPEG, PNG, WebP. Max 5MB per file.
+                            </div>
+                            <div id="photoPreview" class="mt-2 row g-2"></div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success" id="resolveBtn">
+                                <span id="resolveBtnText">
+                                    <i class="bi bi-check-circle"></i> Mark as Resolved
+                                </span>
+                                <span id="resolveBtnSpinner" class="d-none">
+                                    <span class="spinner-border spinner-border-sm me-2"></span>Resolving...
+                                </span>
+                            </button>
+                            <a href="{% url 'staff:my_assignments' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" class="img-fluid" alt="Photo">
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.status-pending { background-color: #6c757d !important; }
+.status-assigned { background-color: #0dcaf0 !important; }
+.status-in-progress { background-color: #ffc107 !important; color: #000 !important; }
+.status-resolved { background-color: #198754 !important; }
+.status-closed { background-color: #6c757d !important; }
+</style>
+
+<script>
+// Photo preview
+document.getElementById('afterPhotos').addEventListener('change', function(e) {
+    const preview = document.getElementById('photoPreview');
+    preview.innerHTML = '';
+    
+    const files = Array.from(e.target.files);
+    
+    if (files.length === 0) {
+        return;
+    }
+    
+    files.forEach((file, index) => {
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert(`File "${file.name}" is too large. Maximum size is 5MB.`);
+            return;
+        }
+        
+        // Validate file type
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            alert(`File "${file.name}" has invalid format. Only JPEG, PNG, and WebP are allowed.`);
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const col = document.createElement('div');
+            col.className = 'col-md-3 col-6';
+            col.innerHTML = `
+                <div class="position-relative">
+                    <img src="${event.target.result}" class="img-fluid rounded" alt="Preview">
+                    <div class="position-absolute top-0 end-0 p-1">
+                        <span class="badge bg-success">${index + 1}</span>
+                    </div>
+                </div>
+            `;
+            preview.appendChild(col);
+        };
+        reader.readAsDataURL(file);
+    });
+});
+
+// Form submission
+document.getElementById('resolutionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    const resolveBtn = document.getElementById('resolveBtn');
+    const resolutionMessage = document.getElementById('resolutionMessage');
+    
+    // Validate at least one photo
+    const photos = document.getElementById('afterPhotos').files;
+    if (photos.length === 0) {
+        resolutionMessage.className = 'alert alert-danger';
+        resolutionMessage.textContent = 'Please upload at least one after photo.';
+        resolutionMessage.classList.remove('d-none');
+        return;
+    }
+    
+    // Disable button and show loading
+    resolveBtn.disabled = true;
+    document.getElementById('resolveBtnText').classList.add('d-none');
+    document.getElementById('resolveBtnSpinner').classList.remove('d-none');
+    resolutionMessage.classList.add('d-none');
+    
+    // Send resolution request
+    fetch('/api/complaints/{{ complaint.complaint_id }}/resolve/', {
+        method: 'PUT',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message) {
+            // Success
+            resolutionMessage.className = 'alert alert-success';
+            resolutionMessage.innerHTML = `
+                <i class="bi bi-check-circle"></i> ${data.message}
+                <br><small>Redirecting to assignments...</small>
+            `;
+            resolutionMessage.classList.remove('d-none');
+            
+            // Redirect after 2 seconds
+            setTimeout(() => {
+                window.location.href = '{% url "staff:my_assignments" %}';
+            }, 2000);
+        } else if (data.error) {
+            // Error
+            resolutionMessage.className = 'alert alert-danger';
+            resolutionMessage.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${data.error}`;
+            resolutionMessage.classList.remove('d-none');
+            
+            // Re-enable button
+            resolveBtn.disabled = false;
+            document.getElementById('resolveBtnText').classList.remove('d-none');
+            document.getElementById('resolveBtnSpinner').classList.add('d-none');
+        }
+    })
+    .catch(error => {
+        console.error('Error resolving complaint:', error);
+        resolutionMessage.className = 'alert alert-danger';
+        resolutionMessage.innerHTML = '<i class="bi bi-exclamation-triangle"></i> An error occurred while resolving the complaint. Please try again.';
+        resolutionMessage.classList.remove('d-none');
+        
+        // Re-enable button
+        resolveBtn.disabled = false;
+        document.getElementById('resolveBtnText').classList.remove('d-none');
+        document.getElementById('resolveBtnSpinner').classList.add('d-none');
+    });
+});
+
+// Image modal
+function openImageModal(imageUrl) {
+    document.getElementById('modalImage').src = imageUrl;
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

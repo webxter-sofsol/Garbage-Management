@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Pickup Requests - GCMS{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class="bi bi-calendar-check text-success"></i> My Pickup Requests</h4>
+                <a href="{% url 'pickups:create' %}" class="btn btn-success">
+                    <i class="bi bi-plus-circle"></i> New Request
+                </a>
+            </div>
+            
+            {% if pickup_requests %}
+                <div class="row">
+                    {% for request in pickup_requests %}
+                    <div class="col-12 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">
+                                        <a href="{% url 'pickups:detail' request.request_id %}" class="text-decoration-none">
+                                            {{ request.request_id }}
+                                        </a>
+                                    </h6>
+                                    <span class="badge bg-{{ request.status }}">
+                                        {{ request.get_status_display }}
+                                    </span>
+                                </div>
+                                
+                                <p class="mb-2">
+                                    <i class="bi bi-trash"></i> {{ request.get_waste_type_display }}
+                                </p>
+                                
+                                <div class="row g-2 small text-muted">
+                                    <div class="col-md-6">
+                                        <i class="bi bi-calendar"></i> Preferred: {{ request.preferred_date|date:"M d, Y" }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <i class="bi bi-geo-alt"></i> {{ request.address|default:"Location"|truncatewords:5 }}
+                                    </div>
+                                </div>
+                                
+                                {% if request.scheduled_date %}
+                                <div class="mt-2 small text-success">
+                                    <i class="bi bi-check-circle"></i> Scheduled for: {{ request.scheduled_date|date:"M d, Y" }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> You haven't made any pickup requests yet.
+                    <div class="mt-3">
+                        <a href="{% url 'pickups:create' %}" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Schedule Your First Pickup
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
