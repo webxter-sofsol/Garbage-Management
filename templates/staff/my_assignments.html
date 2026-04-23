@@ -1,72 +1,363 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}My Assignments - GCMS{% endblock %}
+{% block title %}My Assignments — GCMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    color: #fff;
+    margin-bottom: 1.5rem;
+  }
+  .duty-toggle {
+    border: 2px solid rgba(255,255,255,.5);
+    color: #fff;
+    background: transparent;
+    border-radius: 50px;
+    padding: .4rem 1.1rem;
+    font-size: .85rem;
+    font-weight: 600;
+    transition: background .2s;
+  }
+  .duty-toggle:hover { background: rgba(255,255,255,.15); color: #fff; }
+  .duty-toggle.on-duty { background: rgba(255,255,255,.2); border-color: #fff; }
+
+  /* Location bar */
+  .location-bar {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .location-status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #6c757d;
+    flex-shrink: 0;
+  }
+  .location-status-dot.sharing { background: #198754; animation: pulse 1.5s infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(25,135,84,.4); }
+    50%       { box-shadow: 0 0 0 6px rgba(25,135,84,0); }
+  }
+  .btn-share-location {
+    background: linear-gradient(135deg, #0f5132, #198754);
+    border: none;
+    border-radius: 50px;
+    color: #fff;
+    font-size: .85rem;
+    font-weight: 600;
+    padding: .45rem 1.1rem;
+    transition: opacity .2s;
+  }
+  .btn-share-location:hover { opacity: .88; color: #fff; }
+  .btn-stop-location {
+    border: 2px solid #dc3545;
+    color: #dc3545;
+    background: transparent;
+    border-radius: 50px;
+    font-size: .85rem;
+    font-weight: 600;
+    padding: .4rem 1.1rem;
+  }
+
+  /* Assignment cards */
+  .assignment-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    overflow: hidden;
+    margin-bottom: .85rem;
+    display: flex;
+  }
+  .assignment-card .status-bar {
+    width: 5px;
+    flex-shrink: 0;
+  }
+  .status-bar.assigned    { background: #0dcaf0; }
+  .status-bar.in-progress { background: #ffc107; }
+  .status-bar.resolved    { background: #198754; }
+  .assignment-card .card-inner { padding: 1rem 1.1rem; flex: 1; min-width: 0; }
+
+  .cid-badge {
+    font-family: 'Courier New', monospace;
+    font-size: .75rem;
+    background: #f0fdf4;
+    color: #0f5132;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: .15em .5em;
+    font-weight: 600;
+  }
+  .status-pill {
+    font-size: .7rem;
+    font-weight: 700;
+    padding: .25em .7em;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .s-assigned    { background: #cff4fc; color: #055160; }
+  .s-in-progress { background: #fff3cd; color: #664d03; }
+  .s-resolved    { background: #d1e7dd; color: #0a3622; }
+
+  .meta-row { font-size: .78rem; color: #6c757d; display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .4rem; }
+
+  /* Map in location bar */
+  #miniMap { height: 160px; border-radius: 10px; margin-top: .75rem; width: 100%; }
+
+  .empty-state { text-align: center; padding: 3.5rem 1rem; }
+  .empty-state .icon-circle {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: #d1e7dd;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 1rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <h5 class="mb-4">My Assigned Complaints</h5>
+<div class="container py-3 pb-5">
 
-            {% if complaints %}
-            <div class="row">
-                {% for complaint in complaints %}
-                <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="card-title mb-0">{{ complaint.complaint_id }}</h6>
-                                <span class="badge bg-{{ complaint.status }} status-{{ complaint.status }}">
-                                    {{ complaint.get_status_display }}
-                                </span>
-                            </div>
-                            
-                            <p class="card-text small text-muted mb-2">
-                                <i class="bi bi-calendar"></i> {{ complaint.created_at|date:"M d, Y H:i" }}
-                            </p>
-                            
-                            <p class="card-text">{{ complaint.description|truncatewords:20 }}</p>
-                            
-                            <p class="card-text small">
-                                <i class="bi bi-geo-alt"></i> {{ complaint.address|default:"Location not available" }}
-                            </p>
-                            
-                            {% if complaint.photos.count > 0 %}
-                            <p class="card-text small text-muted">
-                                <i class="bi bi-image"></i> {{ complaint.photos.count }} photo(s)
-                            </p>
-                            {% endif %}
-                            
-                            <div class="d-flex gap-2 mt-3">
-                                <a href="{% url 'complaints:detail' complaint.complaint_id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye"></i> View
-                                </a>
-                                {% if complaint.status in 'assigned,in-progress' %}
-                                <a href="{% url 'staff:resolve_complaint' complaint.complaint_id %}" class="btn btn-sm btn-success">
-                                    <i class="bi bi-check-circle"></i> Resolve
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> You have no assigned complaints at the moment.
-            </div>
-            {% endif %}
+  {# ── Page Header ── #}
+  <div class="page-header">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div style="background:rgba(255,255,255,.15);border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-clipboard-check-fill text-white fs-5"></i>
         </div>
+        <div>
+          <h4 class="fw-bold text-white mb-0">My Assignments</h4>
+          <p class="mb-0 text-white" style="opacity:.8;font-size:.85rem;">
+            {{ staff_profile.name }} &middot; <span id="dutyStatusText">{{ staff_profile.get_duty_status_display }}</span>
+          </p>
+        </div>
+      </div>
+      <button id="dutyToggleBtn"
+        class="duty-toggle {% if staff_profile.duty_status == 'on_duty' %}on-duty{% endif %}"
+        data-status="{{ staff_profile.duty_status }}">
+        {% if staff_profile.duty_status == 'on_duty' %}
+          <i class="bi bi-toggle-on me-1"></i> On Duty
+        {% else %}
+          <i class="bi bi-toggle-off me-1"></i> Off Duty
+        {% endif %}
+      </button>
     </div>
-</div>
+  </div>
 
-<style>
-.status-pending { background-color: #6c757d !important; }
-.status-assigned { background-color: #0dcaf0 !important; }
-.status-in-progress { background-color: #ffc107 !important; color: #000 !important; }
-.status-resolved { background-color: #198754 !important; }
-.status-closed { background-color: #6c757d !important; }
-</style>
+  {# ── Live Location Bar ── #}
+  <div class="location-bar">
+    <div class="location-status-dot" id="locationDot"></div>
+    <div class="flex-grow-1">
+      <div class="fw-semibold" style="font-size:.88rem;" id="locationLabel">Location sharing off</div>
+      <div class="text-muted" style="font-size:.75rem;" id="locationSub">Start sharing to let authorities track your position</div>
+    </div>
+    <button class="btn-share-location" id="startLocationBtn">
+      <i class="bi bi-geo-alt-fill me-1"></i> Share Location
+    </button>
+    <button class="btn-stop-location d-none" id="stopLocationBtn">
+      <i class="bi bi-stop-circle me-1"></i> Stop
+    </button>
+  </div>
+  <div id="miniMapWrap" class="d-none mb-3">
+    <div id="miniMap"></div>
+  </div>
+
+  {# ── Assignments ── #}
+  {% if complaints %}
+    <h6 class="text-muted fw-semibold mb-3 text-uppercase" style="letter-spacing:.5px;font-size:.75rem;">
+      {{ complaints|length }} Assignment{{ complaints|length|pluralize }}
+    </h6>
+
+    {% for complaint in complaints %}
+    <div class="assignment-card">
+      <div class="status-bar {{ complaint.status }}"></div>
+      <div class="card-inner">
+        <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+          <span class="cid-badge">{{ complaint.complaint_id }}</span>
+          {% if complaint.status == 'assigned' %}
+            <span class="status-pill s-assigned">Assigned</span>
+          {% elif complaint.status == 'in-progress' %}
+            <span class="status-pill s-in-progress">In Progress</span>
+          {% elif complaint.status == 'resolved' %}
+            <span class="status-pill s-resolved">Resolved</span>
+          {% endif %}
+        </div>
+
+        <p class="mb-1" style="font-size:.88rem;color:#374151;line-height:1.4;">
+          {{ complaint.description|truncatechars:100 }}
+        </p>
+
+        <div class="meta-row">
+          {% if complaint.address %}
+          <span><i class="bi bi-geo-alt me-1"></i>{{ complaint.address|truncatechars:45 }}</span>
+          {% endif %}
+          <span><i class="bi bi-clock me-1"></i>{{ complaint.created_at|timesince }} ago</span>
+          {% if complaint.photos.count %}
+          <span><i class="bi bi-images me-1"></i>{{ complaint.photos.count }} photo{{ complaint.photos.count|pluralize }}</span>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-2 mt-2 flex-wrap">
+          <a href="{% url 'complaints:detail' complaint.complaint_id %}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-eye me-1"></i>View
+          </a>
+          {% if complaint.status == 'assigned' or complaint.status == 'in-progress' %}
+          <a href="{% url 'staff:resolve_complaint' complaint.complaint_id %}" class="btn btn-sm btn-success">
+            <i class="bi bi-check-circle me-1"></i>Resolve
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+  {% else %}
+    <div class="empty-state">
+      <div class="icon-circle">
+        <i class="bi bi-clipboard2-check text-success fs-2"></i>
+      </div>
+      <h5 class="fw-bold">No assignments yet</h5>
+      <p class="text-muted" style="font-size:.9rem;">You'll see complaints here once an authority assigns them to you.</p>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  const CSRF = '{{ csrf_token }}';
+  let watchId = null;
+  let map = null;
+  let marker = null;
+  let sharing = false;
+
+  const dot        = document.getElementById('locationDot');
+  const label      = document.getElementById('locationLabel');
+  const sub        = document.getElementById('locationSub');
+  const startBtn   = document.getElementById('startLocationBtn');
+  const stopBtn    = document.getElementById('stopLocationBtn');
+  const mapWrap    = document.getElementById('miniMapWrap');
+  const dutyBtn    = document.getElementById('dutyToggleBtn');
+  const dutyText   = document.getElementById('dutyStatusText');
+
+  // ── Duty toggle ──────────────────────────────────────────────
+  dutyBtn.addEventListener('click', function () {
+    fetch('/api/staff/toggle-duty/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+      const onDuty = data.duty_status === 'on_duty';
+      dutyText.textContent = data.duty_status_display;
+      dutyBtn.dataset.status = data.duty_status;
+      dutyBtn.innerHTML = onDuty
+        ? '<i class="bi bi-toggle-on me-1"></i> On Duty'
+        : '<i class="bi bi-toggle-off me-1"></i> Off Duty';
+      dutyBtn.classList.toggle('on-duty', onDuty);
+    })
+    .catch(() => alert('Failed to update duty status.'));
+  });
+
+  // ── Location sharing ─────────────────────────────────────────
+  function initMap(lat, lng) {
+    mapWrap.classList.remove('d-none');
+    if (!map) {
+      map = L.map('miniMap').setView([lat, lng], 15);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO'
+      }).addTo(map);
+    } else {
+      map.setView([lat, lng], 15);
+    }
+    if (marker) map.removeLayer(marker);
+    marker = L.circleMarker([lat, lng], {
+      radius: 9, color: '#198754', fillColor: '#198754', fillOpacity: .85
+    }).addTo(map).bindPopup('Your location').openPopup();
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+
+  function sendLocation(lat, lng, accuracy) {
+    fetch('/api/staff/update-location/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latitude: lat, longitude: lng, accuracy: accuracy })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'success') {
+        const now = new Date().toLocaleTimeString();
+        sub.textContent = `Last updated: ${now}`;
+      }
+    })
+    .catch(() => {});
+  }
+
+  function startSharing() {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    sharing = true;
+    dot.classList.add('sharing');
+    label.textContent = 'Sharing location…';
+    sub.textContent = 'Getting GPS fix…';
+    startBtn.classList.add('d-none');
+    stopBtn.classList.remove('d-none');
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+        label.textContent = 'Location sharing active';
+        sub.textContent = `Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}`;
+        initMap(lat, lng);
+        sendLocation(lat, lng, acc);
+      },
+      (err) => {
+        label.textContent = 'Location error';
+        sub.textContent = err.message;
+        dot.classList.remove('sharing');
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+    );
+  }
+
+  function stopSharing() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    sharing = false;
+    dot.classList.remove('sharing');
+    label.textContent = 'Location sharing off';
+    sub.textContent = 'Start sharing to let authorities track your position';
+    startBtn.classList.remove('d-none');
+    stopBtn.classList.add('d-none');
+  }
+
+  startBtn.addEventListener('click', startSharing);
+  stopBtn.addEventListener('click', stopSharing);
+
+  // Auto-start if on duty
+  {% if staff_profile.duty_status == 'on_duty' %}
+  startSharing();
+  {% endif %}
+
+})();
+</script>
 {% endblock %}

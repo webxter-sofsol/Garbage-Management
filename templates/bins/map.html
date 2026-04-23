@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bin Locations - GCMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #binMap { height: 60vh; min-height: 350px; border-radius: 8px; }
+    .bin-filter-bar { background: #f8f9fa; border-radius: 8px; }
+    .bin-type-badge-general    { background: #6c757d; }
+    .bin-type-badge-recyclable { background: #0d6efd; }
+    .bin-type-badge-organic    { background: #198754; }
+    .bin-card { cursor: pointer; transition: box-shadow .2s; }
+    .bin-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+    .distance-badge { font-size: .75rem; }
+    #loadingOverlay {
+        position: absolute; inset: 0; background: rgba(255,255,255,.7);
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; z-index: 1000;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0"><i class="bi bi-geo-alt-fill text-success"></i> Bin Locations</h5>
+        <button class="btn btn-sm btn-outline-success" id="locateBtn">
+            <i class="bi bi-crosshair"></i> Use My Location
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="bin-filter-bar p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-sm-4">
+                <label class="form-label small mb-1">Bin Type</label>
+                <select class="form-select form-select-sm" id="binTypeFilter">
+                    <option value="">All Types</option>
+                    {% for value, label in bin_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-sm-4">
+                <label class="form-label small mb-1">Radius (km)</label>
+                <select class="form-select form-select-sm" id="radiusFilter">
+                    <option value="1">1 km</option>
+                    <option value="2">2 km</option>
+                    <option value="5" selected>5 km</option>
+                    <option value="10">10 km</option>
+                    <option value="50">All</option>
+                </select>
+            </div>
+            <div class="col-sm-4">
+                <button class="btn btn-success btn-sm w-100" id="searchBtn">
+                    <i class="bi bi-search"></i> Search
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div class="position-relative mb-3">
+        <div id="binMap"></div>
+        <div id="loadingOverlay" class="d-none">
+            <div class="spinner-border text-success"></div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsSection">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small text-muted" id="resultsCount">Enable location or search to see nearby bins.</span>
+        </div>
+        <div id="binList" class="row g-2"></div>
+    </div>
+</div>
+
+<!-- Bin Detail Modal -->
+<div class="modal fade" id="binModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-trash3"></i> Bin Details</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="binModalBody">
+                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-success"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const BIN_COLORS = { general: '#6c757d', recyclable: '#0d6efd', organic: '#198754' };
+const BIN_ICONS  = { general: '🗑️', recyclable: '♻️', organic: '🌿' };
+
+let map, userMarker, binMarkers = [];
+let userLat = null, userLon = null;
+
+// Init map centered on a default location
+map = L.map('binMap').setView([20.5937, 78.9629], 5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>'
+}).addTo(map);
+
+function makeIcon(type) {
+    const color = BIN_COLORS[type] || '#6c757d';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+        <path d="M16 0C7.2 0 0 7.2 0 16c0 12 16 24 16 24S32 28 32 16C32 7.2 24.8 0 16 0z" fill="${color}"/>
+        <circle cx="16" cy="16" r="8" fill="white" opacity=".9"/>
+        <text x="16" y="20" text-anchor="middle" font-size="11">${BIN_ICONS[type] || '🗑️'}</text>
+    </svg>`;
+    return L.divIcon({
+        html: svg, className: '', iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40]
+    });
+}
+
+function setLoading(show) {
+    document.getElementById('loadingOverlay').classList.toggle('d-none', !show);
+}
+
+function clearBinMarkers() {
+    binMarkers.forEach(m => map.removeLayer(m));
+    binMarkers = [];
+}
+
+function renderBins(bins) {
+    clearBinMarkers();
+    const list = document.getElementById('binList');
+    const count = document.getElementById('resultsCount');
+    list.innerHTML = '';
+
+    if (!bins.length) {
+        count.textContent = 'No bins found in this area.';
+        return;
+    }
+
+    count.textContent = `${bins.length} bin${bins.length !== 1 ? 's' : ''} found`;
+
+    bins.forEach(bin => {
+        // Map marker
+        const marker = L.marker([bin.latitude, bin.longitude], { icon: makeIcon(bin.bin_type) })
+            .addTo(map)
+            .bindPopup(`
+                <strong>${bin.bin_type_display}</strong><br>
+                <small>${bin.address}</small><br>
+                ${bin.distance_km != null ? `<span class="badge bg-secondary">${bin.distance_km} km away</span>` : ''}
+                <br><a href="#" onclick="showBinDetail('${bin.bin_id}'); return false;" class="btn btn-sm btn-outline-success mt-1">Details</a>
+            `);
+        binMarkers.push(marker);
+
+        // List card
+        const col = document.createElement('div');
+        col.className = 'col-md-6 col-lg-4';
+        col.innerHTML = `
+            <div class="card bin-card h-100" onclick="showBinDetail('${bin.bin_id}')">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="badge text-white bin-type-badge-${bin.bin_type}">${bin.bin_type_display}</span>
+                        ${bin.distance_km != null ? `<span class="badge bg-light text-dark distance-badge"><i class="bi bi-geo-alt"></i> ${bin.distance_km} km</span>` : ''}
+                    </div>
+                    <p class="small mb-1 text-muted"><i class="bi bi-pin-map"></i> ${bin.address}</p>
+                    <p class="small mb-0"><i class="bi bi-clock"></i> ${bin.collection_schedule}</p>
+                </div>
+            </div>`;
+        list.appendChild(col);
+    });
+
+    // Fit map to markers
+    if (binMarkers.length) {
+        const group = L.featureGroup(binMarkers);
+        map.fitBounds(group.getBounds().pad(0.2));
+    }
+}
+
+function fetchBins() {
+    const binType = document.getElementById('binTypeFilter').value;
+    const radius  = document.getElementById('radiusFilter').value;
+
+    let url = '/api/bins/nearby/?radius_km=' + radius;
+    if (binType) url += '&bin_type=' + binType;
+    if (userLat !== null) url += `&latitude=${userLat}&longitude=${userLon}`;
+
+    setLoading(true);
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(data => {
+            setLoading(false);
+            renderBins(data.bins || []);
+        })
+        .catch(() => {
+            setLoading(false);
+            document.getElementById('resultsCount').textContent = 'Error loading bins. Please try again.';
+        });
+}
+
+function showBinDetail(binId) {
+    const modal = new bootstrap.Modal(document.getElementById('binModal'));
+    document.getElementById('binModalBody').innerHTML =
+        '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-success"></div></div>';
+    modal.show();
+
+    let url = `/api/bins/${binId}/`;
+    if (userLat !== null) url += `?latitude=${userLat}&longitude=${userLon}`;
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.json())
+        .then(bin => {
+            document.getElementById('binModalBody').innerHTML = `
+                <div class="mb-2">
+                    <span class="badge text-white bin-type-badge-${bin.bin_type} mb-2">${bin.bin_type_display}</span>
+                    ${bin.distance_km != null ? `<span class="badge bg-secondary ms-1">${bin.distance_km} km away</span>` : ''}
+                </div>
+                <p class="mb-1"><i class="bi bi-pin-map text-success"></i> <strong>Address:</strong> ${bin.address}</p>
+                <p class="mb-1"><i class="bi bi-clock text-success"></i> <strong>Collection:</strong> ${bin.collection_schedule}</p>
+                ${bin.capacity ? `<p class="mb-1"><i class="bi bi-box text-success"></i> <strong>Capacity:</strong> ${bin.capacity}</p>` : ''}
+                <p class="mb-0 small text-muted"><strong>ID:</strong> ${bin.bin_id}</p>
+            `;
+            // Pan map to bin
+            map.setView([bin.latitude, bin.longitude], 16);
+        })
+        .catch(() => {
+            document.getElementById('binModalBody').innerHTML =
+                '<p class="text-danger">Could not load bin details.</p>';
+        });
+}
+
+// Locate user
+document.getElementById('locateBtn').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser.');
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.circleMarker([userLat, userLon], {
+            radius: 8, color: '#198754', fillColor: '#198754', fillOpacity: 0.8
+        }).addTo(map).bindPopup('Your location').openPopup();
+
+        map.setView([userLat, userLon], 14);
+        fetchBins();
+    }, () => {
+        alert('Unable to retrieve your location. Please allow location access.');
+    });
+});
+
+document.getElementById('searchBtn').addEventListener('click', fetchBins);
+
+// Load all bins on page load
+fetchBins();
+</script>
+{% endblock %}

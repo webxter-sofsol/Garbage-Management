@@ -1,238 +1,384 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Resolve Complaint {{ complaint.complaint_id }} - GCMS{% endblock %}
+{% block title %}Resolve {{ complaint.complaint_id }} — GCMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    border-radius: 16px;
+    padding: 1.4rem 1.75rem;
+    color: #fff;
+    margin-bottom: 1.5rem;
+  }
+  .detail-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    border: none;
+    margin-bottom: 1.1rem;
+  }
+  .card-section-title {
+    font-size: .8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6c757d;
+    padding: .9rem 1.25rem .5rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .card-section-title i { color: #198754; }
+  .card-body-inner { padding: 1rem 1.25rem 1.25rem; }
+
+  /* Photo grid */
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+  .photo-thumb:hover img { transform: scale(1.05); }
+  .photo-thumb .overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0);
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  .photo-thumb:hover .overlay { background: rgba(0,0,0,.25); }
+  .photo-thumb:hover .overlay i { opacity: 1; }
+  .overlay i { color: #fff; font-size: 1.3rem; opacity: 0; transition: opacity .2s; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: 12px;
+    padding: 1.75rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: #198754;
+    background: #f0faf4;
+  }
+  .after-preview { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .75rem; }
+  .after-thumb {
+    aspect-ratio: 1; border-radius: 8px; overflow: hidden; position: relative;
+    background: #f8f9fa;
+  }
+  .after-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .after-thumb .remove-btn {
+    position: absolute; top: 4px; right: 4px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(220,53,69,.85); color: #fff;
+    border: none; font-size: .7rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+
+  /* Map */
+  #complaintMap { height: 180px; border-radius: 10px; margin-top: .75rem; }
+
+  /* Submit button */
+  .btn-resolve {
+    background: linear-gradient(135deg, #0f5132, #198754);
+    border: none; border-radius: 10px;
+    color: #fff; font-weight: 600;
+    padding: .8rem 1.5rem; width: 100%;
+    transition: opacity .2s;
+  }
+  .btn-resolve:hover { opacity: .9; color: #fff; }
+  .btn-resolve:disabled { opacity: .65; }
+
+  .status-pill {
+    font-size: .72rem; font-weight: 700;
+    padding: .25em .7em; border-radius: 50px;
+    text-transform: uppercase;
+  }
+  .s-assigned    { background: #cff4fc; color: #055160; }
+  .s-in-progress { background: #fff3cd; color: #664d03; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5>Resolve Complaint: {{ complaint.complaint_id }}</h5>
-                <a href="{% url 'staff:my_assignments' %}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Assignments
-                </a>
-            </div>
+<div class="container py-3 pb-5">
 
-            <!-- Complaint Details -->
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-3 text-muted">Complaint Details</h6>
-                    <p class="mb-2"><strong>Description:</strong> {{ complaint.description }}</p>
-                    <p class="mb-2"><strong>Location:</strong> {{ complaint.address|default:"Location not available" }}</p>
-                    <p class="mb-2"><strong>Submitted:</strong> {{ complaint.created_at|date:"M d, Y H:i" }}</p>
-                    <p class="mb-0"><strong>Status:</strong> 
-                        <span class="badge bg-{{ complaint.status }} status-{{ complaint.status }}">
-                            {{ complaint.get_status_display }}
-                        </span>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Before Photos -->
-            {% if before_photos %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-3 text-muted">Before Photos (Reference)</h6>
-                    <div class="row g-2">
-                        {% for photo in before_photos %}
-                        <div class="col-md-4 col-6">
-                            <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="Before photo" 
-                                 style="cursor: pointer;" onclick="openImageModal('{{ photo.photo.url }}')">
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Resolution Form -->
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-3 text-muted">Mark as Resolved</h6>
-                    
-                    <div id="resolutionMessage" class="alert d-none"></div>
-                    
-                    <form id="resolutionForm" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        
-                        <div class="mb-3">
-                            <label for="afterPhotos" class="form-label">
-                                After Photos <span class="text-danger">*</span>
-                            </label>
-                            <input type="file" class="form-control" id="afterPhotos" name="after_photos" 
-                                   accept="image/jpeg,image/png,image/webp" multiple required>
-                            <div class="form-text">
-                                <i class="bi bi-info-circle"></i> 
-                                Upload at least one photo showing the resolved issue. 
-                                Accepted formats: JPEG, PNG, WebP. Max 5MB per file.
-                            </div>
-                            <div id="photoPreview" class="mt-2 row g-2"></div>
-                        </div>
-                        
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-success" id="resolveBtn">
-                                <span id="resolveBtnText">
-                                    <i class="bi bi-check-circle"></i> Mark as Resolved
-                                </span>
-                                <span id="resolveBtnSpinner" class="d-none">
-                                    <span class="spinner-border spinner-border-sm me-2"></span>Resolving...
-                                </span>
-                            </button>
-                            <a href="{% url 'staff:my_assignments' %}" class="btn btn-outline-secondary">
-                                Cancel
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
+  {# ── Header ── #}
+  <div class="page-header">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <a href="{% url 'staff:my_assignments' %}" style="background:rgba(255,255,255,.15);border-radius:8px;padding:.35rem .65rem;color:#fff;text-decoration:none;">
+          <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+          <div style="font-family:'Courier New',monospace;font-size:.85rem;opacity:.8;">{{ complaint.complaint_id }}</div>
+          <h5 class="fw-bold text-white mb-0">Resolve Complaint</h5>
         </div>
+      </div>
+      {% if complaint.status == 'assigned' %}
+        <span class="status-pill s-assigned">Assigned</span>
+      {% elif complaint.status == 'in-progress' %}
+        <span class="status-pill s-in-progress">In Progress</span>
+      {% endif %}
     </div>
+  </div>
+
+  <div class="row g-3">
+
+    {# ── Left: complaint info ── #}
+    <div class="col-lg-5">
+
+      {# Description #}
+      <div class="detail-card">
+        <div class="card-section-title"><i class="bi bi-file-text"></i>Description</div>
+        <div class="card-body-inner">
+          <p class="mb-0" style="line-height:1.7;color:#374151;">{{ complaint.description }}</p>
+        </div>
+      </div>
+
+      {# Location + map #}
+      <div class="detail-card">
+        <div class="card-section-title"><i class="bi bi-geo-alt"></i>Location</div>
+        <div class="card-body-inner">
+          <p class="mb-1" style="font-size:.88rem;">{{ complaint.address|default:"Location not specified" }}</p>
+          <p class="text-muted mb-0" style="font-size:.75rem;font-family:'Courier New',monospace;">
+            {{ complaint.latitude }}, {{ complaint.longitude }}
+          </p>
+          <div id="complaintMap"></div>
+        </div>
+      </div>
+
+      {# Before photos #}
+      {% if before_photos %}
+      <div class="detail-card">
+        <div class="card-section-title"><i class="bi bi-camera"></i>Before Photos</div>
+        <div class="card-body-inner">
+          <div class="row g-2">
+            {% for photo in before_photos %}
+            <div class="col-4">
+              <div class="photo-thumb" onclick="openLightbox('{{ photo.photo.url }}')">
+                <img src="{{ photo.photo.url }}" alt="Before photo" loading="lazy">
+                <div class="overlay"><i class="bi bi-zoom-in"></i></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    {# ── Right: resolution form ── #}
+    <div class="col-lg-7">
+      <div class="detail-card">
+        <div class="card-section-title"><i class="bi bi-check-circle"></i>Mark as Resolved</div>
+        <div class="card-body-inner">
+
+          <div id="resolutionMsg" class="alert d-none mb-3"></div>
+
+          <form id="resolutionForm" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            {# After photos upload #}
+            <div class="mb-3">
+              <label class="form-label fw-semibold" style="font-size:.88rem;">
+                After Photos <span class="text-danger">*</span>
+                <span class="text-muted fw-normal">(at least 1 required)</span>
+              </label>
+
+              <div id="uploadZone" class="upload-zone">
+                <i class="bi bi-cloud-arrow-up text-success fs-2 d-block mb-2"></i>
+                <div class="fw-semibold text-secondary" style="font-size:.9rem;">Click or drag photos here</div>
+                <div class="text-muted small mt-1">JPEG, PNG, WebP · Max 5MB each</div>
+                <input type="file" id="afterPhotos" name="after_photos"
+                       accept="image/jpeg,image/png,image/webp" multiple class="d-none">
+              </div>
+              <div id="photoError" class="text-danger small mt-1 d-none"></div>
+              <div id="afterPreview" class="after-preview"></div>
+            </div>
+
+            <button type="submit" class="btn-resolve" id="resolveBtn">
+              <span id="resolveBtnText"><i class="bi bi-check-circle-fill me-2"></i>Mark as Resolved</span>
+              <span id="resolveBtnSpinner" class="d-none">
+                <span class="spinner-border spinner-border-sm me-2"></span>Resolving…
+              </span>
+            </button>
+          </form>
+
+        </div>
+      </div>
+
+      {# Tips #}
+      <div class="p-3 rounded-3" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+        <h6 class="fw-bold text-success mb-2" style="font-size:.85rem;">
+          <i class="bi bi-lightbulb-fill me-1"></i>Tips for a good resolution
+        </h6>
+        <ul class="mb-0 ps-3" style="font-size:.8rem;color:#374151;">
+          <li>Take clear "after" photos showing the issue is resolved</li>
+          <li>Make sure the same area is visible as in the before photos</li>
+          <li>Good lighting helps verify the work was done</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
 </div>
 
-<!-- Image Modal -->
-<div class="modal fade" id="imageModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Photo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-center">
-                <img id="modalImage" src="" class="img-fluid" alt="Photo">
-            </div>
-        </div>
+{# Lightbox modal #}
+<div class="modal fade" id="lightboxModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark border-0">
+      <div class="modal-header border-0">
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="lightboxImg" src="" class="img-fluid rounded" style="max-height:80vh;object-fit:contain;">
+      </div>
     </div>
+  </div>
 </div>
+{% endblock %}
 
-<style>
-.status-pending { background-color: #6c757d !important; }
-.status-assigned { background-color: #0dcaf0 !important; }
-.status-in-progress { background-color: #ffc107 !important; color: #000 !important; }
-.status-resolved { background-color: #198754 !important; }
-.status-closed { background-color: #6c757d !important; }
-</style>
-
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Photo preview
-document.getElementById('afterPhotos').addEventListener('change', function(e) {
-    const preview = document.getElementById('photoPreview');
-    preview.innerHTML = '';
-    
-    const files = Array.from(e.target.files);
-    
-    if (files.length === 0) {
-        return;
-    }
-    
-    files.forEach((file, index) => {
-        // Validate file size (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            alert(`File "${file.name}" is too large. Maximum size is 5MB.`);
-            return;
-        }
-        
-        // Validate file type
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-            alert(`File "${file.name}" has invalid format. Only JPEG, PNG, and WebP are allowed.`);
-            return;
-        }
-        
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const col = document.createElement('div');
-            col.className = 'col-md-3 col-6';
-            col.innerHTML = `
-                <div class="position-relative">
-                    <img src="${event.target.result}" class="img-fluid rounded" alt="Preview">
-                    <div class="position-absolute top-0 end-0 p-1">
-                        <span class="badge bg-success">${index + 1}</span>
-                    </div>
-                </div>
-            `;
-            preview.appendChild(col);
-        };
-        reader.readAsDataURL(file);
-    });
-});
+(function () {
+  // ── Complaint map ────────────────────────────────────────────
+  const lat = parseFloat('{{ complaint.latitude }}');
+  const lng = parseFloat('{{ complaint.longitude }}');
+  if (!isNaN(lat) && !isNaN(lng)) {
+    const map = L.map('complaintMap', { scrollWheelZoom: false }).setView([lat, lng], 16);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO'
+    }).addTo(map);
+    L.marker([lat, lng]).addTo(map)
+      .bindPopup('Complaint location').openPopup();
+  }
 
-// Form submission
-document.getElementById('resolutionForm').addEventListener('submit', function(e) {
+  // ── Photo upload ─────────────────────────────────────────────
+  const zone       = document.getElementById('uploadZone');
+  const input      = document.getElementById('afterPhotos');
+  const preview    = document.getElementById('afterPreview');
+  const photoError = document.getElementById('photoError');
+  let selectedFiles = [];
+
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
     e.preventDefault();
-    
-    const form = e.target;
-    const formData = new FormData(form);
-    const resolveBtn = document.getElementById('resolveBtn');
-    const resolutionMessage = document.getElementById('resolutionMessage');
-    
-    // Validate at least one photo
-    const photos = document.getElementById('afterPhotos').files;
-    if (photos.length === 0) {
-        resolutionMessage.className = 'alert alert-danger';
-        resolutionMessage.textContent = 'Please upload at least one after photo.';
-        resolutionMessage.classList.remove('d-none');
-        return;
-    }
-    
-    // Disable button and show loading
-    resolveBtn.disabled = true;
-    document.getElementById('resolveBtnText').classList.add('d-none');
-    document.getElementById('resolveBtnSpinner').classList.remove('d-none');
-    resolutionMessage.classList.add('d-none');
-    
-    // Send resolution request
-    fetch('/api/complaints/{{ complaint.complaint_id }}/resolve/', {
-        method: 'PUT',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.message) {
-            // Success
-            resolutionMessage.className = 'alert alert-success';
-            resolutionMessage.innerHTML = `
-                <i class="bi bi-check-circle"></i> ${data.message}
-                <br><small>Redirecting to assignments...</small>
-            `;
-            resolutionMessage.classList.remove('d-none');
-            
-            // Redirect after 2 seconds
-            setTimeout(() => {
-                window.location.href = '{% url "staff:my_assignments" %}';
-            }, 2000);
-        } else if (data.error) {
-            // Error
-            resolutionMessage.className = 'alert alert-danger';
-            resolutionMessage.innerHTML = `<i class="bi bi-exclamation-triangle"></i> ${data.error}`;
-            resolutionMessage.classList.remove('d-none');
-            
-            // Re-enable button
-            resolveBtn.disabled = false;
-            document.getElementById('resolveBtnText').classList.remove('d-none');
-            document.getElementById('resolveBtnSpinner').classList.add('d-none');
-        }
-    })
-    .catch(error => {
-        console.error('Error resolving complaint:', error);
-        resolutionMessage.className = 'alert alert-danger';
-        resolutionMessage.innerHTML = '<i class="bi bi-exclamation-triangle"></i> An error occurred while resolving the complaint. Please try again.';
-        resolutionMessage.classList.remove('d-none');
-        
-        // Re-enable button
-        resolveBtn.disabled = false;
-        document.getElementById('resolveBtnText').classList.remove('d-none');
-        document.getElementById('resolveBtnSpinner').classList.add('d-none');
-    });
-});
+    zone.classList.remove('drag-over');
+    handleFiles(Array.from(e.dataTransfer.files));
+  });
+  input.addEventListener('change', () => { handleFiles(Array.from(input.files)); input.value = ''; });
 
-// Image modal
-function openImageModal(imageUrl) {
-    document.getElementById('modalImage').src = imageUrl;
-    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
-    modal.show();
-}
+  function handleFiles(files) {
+    photoError.classList.add('d-none');
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    for (const f of files) {
+      if (!allowed.includes(f.type)) { showPhotoError('Only JPEG, PNG, WebP allowed.'); return; }
+      if (f.size > 5 * 1024 * 1024) { showPhotoError(`"${f.name}" exceeds 5MB.`); return; }
+    }
+    selectedFiles = [...selectedFiles, ...files];
+    syncInput();
+    renderPreviews();
+  }
+  function showPhotoError(msg) { photoError.textContent = msg; photoError.classList.remove('d-none'); }
+  function syncInput() {
+    const dt = new DataTransfer();
+    selectedFiles.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+  }
+  function renderPreviews() {
+    preview.innerHTML = '';
+    selectedFiles.forEach((file, idx) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const div = document.createElement('div');
+        div.className = 'after-thumb';
+        div.innerHTML = `<img src="${e.target.result}" alt="Preview">
+          <button type="button" class="remove-btn" data-idx="${idx}"><i class="bi bi-x"></i></button>`;
+        div.querySelector('.remove-btn').addEventListener('click', () => {
+          selectedFiles.splice(idx, 1); syncInput(); renderPreviews();
+        });
+        preview.appendChild(div);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Form submit ──────────────────────────────────────────────
+  const form    = document.getElementById('resolutionForm');
+  const btn     = document.getElementById('resolveBtn');
+  const btnText = document.getElementById('resolveBtnText');
+  const btnSpin = document.getElementById('resolveBtnSpinner');
+  const msg     = document.getElementById('resolutionMsg');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    // Check both selectedFiles array AND the actual file input
+    const fileCount = selectedFiles.length || input.files.length;
+    if (fileCount === 0) {
+      msg.className = 'alert alert-danger';
+      msg.textContent = 'Please upload at least one after photo.';
+      msg.classList.remove('d-none');
+      return;
+    }
+    btn.disabled = true;
+    btnText.classList.add('d-none');
+    btnSpin.classList.remove('d-none');
+    msg.classList.add('d-none');
+
+    // Build FormData manually to ensure files are included
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    const filesToSend = selectedFiles.length > 0 ? selectedFiles : Array.from(input.files);
+    filesToSend.forEach(f => formData.append('after_photos', f));
+
+    fetch('/api/complaints/{{ complaint.complaint_id }}/resolve/', {
+      method: 'PUT',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.message) {
+        msg.className = 'alert alert-success';
+        msg.innerHTML = `<i class="bi bi-check-circle me-2"></i>${data.message}<br><small>Redirecting…</small>`;
+        msg.classList.remove('d-none');
+        setTimeout(() => { window.location.href = '{% url "staff:my_assignments" %}'; }, 2000);
+      } else {
+        msg.className = 'alert alert-danger';
+        msg.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${data.error || 'An error occurred.'}`;
+        msg.classList.remove('d-none');
+        btn.disabled = false;
+        btnText.classList.remove('d-none');
+        btnSpin.classList.add('d-none');
+      }
+    })
+    .catch(() => {
+      msg.className = 'alert alert-danger';
+      msg.textContent = 'Network error. Please try again.';
+      msg.classList.remove('d-none');
+      btn.disabled = false;
+      btnText.classList.remove('d-none');
+      btnSpin.classList.add('d-none');
+    });
+  });
+
+  // ── Lightbox ─────────────────────────────────────────────────
+  window.openLightbox = function (url) {
+    document.getElementById('lightboxImg').src = url;
+    new bootstrap.Modal(document.getElementById('lightboxModal')).show();
+  };
+})();
 </script>
 {% endblock %}

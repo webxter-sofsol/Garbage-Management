@@ -30,6 +30,9 @@ urlpatterns = [
     path("api/complaints/", include('complaints.api_urls')),
     path("api/pickups/", include('pickups.api_urls')),
     path("api/staff/", include('staff.api_urls')),
+    path("bins/", include('bins.urls')),
+    path("api/bins/", include('bins.api_urls')),
+    path("admin-panel/", include('gcms.admin_urls')),
 ]
 
 # Serve media files in development

@@ -1,169 +1,474 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Verify OTP - GCMS{% endblock %}
+{% block title %}Verify Code — GCMS{% endblock %}
+
+{% block extra_css %}
+<style>
+  .desktop-nav, .mobile-header, .mobile-bottom-nav { display: none !important; }
+  body { background: #f0faf4; padding-bottom: 0; }
+  .main-content { padding-top: 0; }
+
+  .auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: stretch;
+  }
+
+  /* Left panel */
+  .auth-left {
+    background: linear-gradient(160deg, #0f5132 0%, #198754 60%, #20c997 100%);
+    flex: 0 0 42%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 3rem 3.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-left::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.06);
+  }
+  .auth-left::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.04);
+  }
+  .auth-left .brand {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -.02em;
+    margin-bottom: 3rem;
+    position: relative; z-index: 1;
+  }
+  .auth-left .brand i { margin-right: .4rem; }
+  .otp-illustration {
+    position: relative; z-index: 1;
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .otp-illustration .envelope-icon {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.15);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #fff;
+    margin-bottom: 1.25rem;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-8px); }
+  }
+  .auth-left .tagline {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: .75rem;
+    position: relative; z-index: 1;
+    text-align: center;
+  }
+  .auth-left .tagline-sub {
+    color: rgba(255,255,255,.8);
+    font-size: .9rem;
+    line-height: 1.6;
+    position: relative; z-index: 1;
+    text-align: center;
+  }
+
+  /* Right panel */
+  .auth-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    background: #fff;
+  }
+  .auth-form-wrap {
+    width: 100%;
+    max-width: 400px;
+  }
+  .auth-form-wrap .form-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: .4rem;
+  }
+  .auth-form-wrap .form-subtitle {
+    color: #6c757d;
+    font-size: .93rem;
+    margin-bottom: 2rem;
+  }
+  .email-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: #d1e7dd;
+    color: #0a3622;
+    border-radius: 50px;
+    padding: .25em .85em;
+    font-size: .85rem;
+    font-weight: 600;
+    margin-bottom: 1.75rem;
+  }
+
+  /* OTP input boxes */
+  .otp-boxes {
+    display: flex;
+    gap: .6rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .otp-box {
+    width: 52px;
+    height: 60px;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    caret-color: #198754;
+  }
+  .otp-box:focus {
+    border-color: #198754;
+    box-shadow: 0 0 0 3px rgba(25,135,84,.15);
+  }
+  .otp-box.filled {
+    border-color: #198754;
+    background: #f0faf4;
+  }
+  .otp-box.error {
+    border-color: #dc3545;
+    background: #fff5f5;
+  }
+  /* Hidden real input */
+  #otp { display: none; }
+
+  .btn-auth {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    border: none;
+    border-radius: 10px;
+    padding: .8rem 1.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    color: #fff;
+    width: 100%;
+    transition: opacity .2s, transform .15s;
+  }
+  .btn-auth:hover { opacity: .92; transform: translateY(-1px); color: #fff; }
+  .btn-auth:disabled { opacity: .65; transform: none; }
+
+  /* Timer */
+  .timer-bar-wrap {
+    background: #f0f0f0;
+    border-radius: 50px;
+    height: 4px;
+    margin-bottom: .5rem;
+    overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    background: #198754;
+    border-radius: 50px;
+    transition: width 1s linear, background .5s;
+  }
+  .timer-text {
+    font-size: .78rem;
+    color: #6c757d;
+    text-align: center;
+    margin-bottom: 1.25rem;
+  }
+  .timer-text.expired { color: #dc3545; }
+
+  .resend-row {
+    text-align: center;
+    margin-top: 1.25rem;
+    font-size: .875rem;
+    color: #6c757d;
+  }
+  .resend-row a, .resend-row button {
+    color: #198754;
+    font-weight: 600;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .resend-row a:hover, .resend-row button:hover { text-decoration: underline; }
+  .resend-row button:disabled { color: #9ca3af; cursor: not-allowed; text-decoration: none; }
+
+  @media (max-width: 767px) {
+    .auth-wrap { flex-direction: column; }
+    .auth-left {
+      flex: none;
+      padding: 1.75rem 1.5rem;
+    }
+    .auth-left .tagline { font-size: 1.2rem; }
+    .otp-box { width: 44px; height: 52px; font-size: 1.3rem; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
-        <div class="card shadow-sm">
-            <div class="card-body p-5">
-                <div class="text-center mb-4">
-                    <div class="mb-3">
-                        <i class="bi bi-envelope-check" style="font-size: 3rem; color: #198754;"></i>
-                    </div>
-                    <h2 class="text-success">Check Your Email</h2>
-                    <p class="text-muted">
-                        We've sent a 6-digit code to<br>
-                        <strong>{{ email }}</strong>
-                    </p>
-                </div>
+<div class="auth-wrap">
 
-                <form method="post" id="otpForm" novalidate>
-                    {% csrf_token %}
-                    
-                    <div class="mb-4">
-                        <label for="otp" class="form-label">Enter OTP Code</label>
-                        <input 
-                            type="text" 
-                            class="form-control form-control-lg text-center" 
-                            id="otp" 
-                            name="otp" 
-                            placeholder="000000"
-                            maxlength="6"
-                            pattern="[0-9]{6}"
-                            required
-                            autocomplete="off"
-                            style="letter-spacing: 0.5rem; font-size: 1.5rem;"
-                        >
-                        <div class="invalid-feedback">
-                            Please enter a valid 6-digit code.
-                        </div>
-                        <div class="form-text">
-                            The code expires in 10 minutes.
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-success btn-lg w-100 mb-3">
-                        Verify & Login
-                    </button>
-                </form>
-
-                <div class="text-center">
-                    <p class="text-muted mb-2">Didn't receive the code?</p>
-                    <form method="post" action="{% url 'authentication:resend_otp' %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-link text-success" id="resendBtn">
-                            Resend OTP
-                        </button>
-                    </form>
-                </div>
-
-                <div class="text-center mt-3">
-                    <a href="{% url 'authentication:register' %}" class="text-muted small">
-                        Use a different email
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="text-center mt-3">
-            <p class="text-muted small">
-                <i class="bi bi-clock"></i> <span id="timer">Time remaining: 10:00</span>
-            </p>
-        </div>
+  <!-- Left panel -->
+  <div class="auth-left">
+    <div class="brand"><i class="bi bi-recycle"></i>GCMS</div>
+    <div class="otp-illustration">
+      <div class="envelope-icon"><i class="bi bi-envelope-open-fill"></i></div>
     </div>
+    <div class="tagline">Check your inbox</div>
+    <p class="tagline-sub">
+      We've sent a 6-digit verification code to your email. It's valid for 10 minutes.
+    </p>
+  </div>
+
+  <!-- Right form panel -->
+  <div class="auth-right">
+    <div class="auth-form-wrap">
+
+      <div class="form-title">Enter your code</div>
+      <p class="form-subtitle">We sent a sign-in code to</p>
+      <div class="email-chip">
+        <i class="bi bi-envelope-fill"></i>{{ email }}
+      </div>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show rounded-3 py-2 mb-3" style="font-size:.875rem;">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" id="otpForm" novalidate>
+        {% csrf_token %}
+        <input type="hidden" id="otp" name="otp">
+
+        <!-- OTP boxes -->
+        <div class="otp-boxes" id="otpBoxes">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-idx="0" autocomplete="off">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-idx="1" autocomplete="off">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-idx="2" autocomplete="off">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-idx="3" autocomplete="off">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-idx="4" autocomplete="off">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-idx="5" autocomplete="off">
+        </div>
+        <div id="otpError" class="text-danger text-center mb-3 d-none" style="font-size:.82rem;">
+          Please enter the complete 6-digit code.
+        </div>
+
+        <!-- Timer -->
+        <div class="timer-bar-wrap">
+          <div class="timer-bar" id="timerBar" style="width:100%;"></div>
+        </div>
+        <div class="timer-text" id="timerText">Code expires in 10:00</div>
+
+        <button type="submit" class="btn-auth" id="submitBtn">
+          <span id="btnText"><i class="bi bi-check-circle me-2"></i>Verify & Sign In</span>
+          <span id="btnLoad" class="d-none">
+            <span class="spinner-border spinner-border-sm me-2"></span>Verifying…
+          </span>
+        </button>
+      </form>
+
+      <div class="resend-row">
+        Didn't receive it?
+        <form method="post" action="{% url 'authentication:resend_otp' %}" class="d-inline" id="resendForm">
+          {% csrf_token %}
+          <button type="submit" id="resendBtn">Resend code</button>
+        </form>
+      </div>
+
+      <div class="text-center mt-3">
+        <a href="{% url 'authentication:register' %}" style="font-size:.82rem;color:#9ca3af;text-decoration:none;">
+          <i class="bi bi-arrow-left me-1"></i>Use a different email
+        </a>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Auto-focus on OTP input
-document.getElementById('otp').focus();
+(function () {
+  const boxes     = Array.from(document.querySelectorAll('.otp-box'));
+  const hiddenOtp = document.getElementById('otp');
+  const form      = document.getElementById('otpForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const btnText   = document.getElementById('btnText');
+  const btnLoad   = document.getElementById('btnLoad');
+  const otpError  = document.getElementById('otpError');
+  const timerBar  = document.getElementById('timerBar');
+  const timerText = document.getElementById('timerText');
+  const resendBtn = document.getElementById('resendBtn');
 
-// Only allow numbers
-document.getElementById('otp').addEventListener('input', function(e) {
-    this.value = this.value.replace(/[^0-9]/g, '');
-    
-    // Auto-submit when 6 digits entered
-    if (this.value.length === 6) {
-        // Validate first
-        const form = document.getElementById('otpForm');
-        if (form.checkValidity()) {
-            form.submit();
+  // Focus first box
+  boxes[0].focus();
+
+  function getOtpValue() {
+    return boxes.map(b => b.value).join('');
+  }
+
+  function syncHidden() {
+    hiddenOtp.value = getOtpValue();
+  }
+
+  function markError(on) {
+    boxes.forEach(b => {
+      b.classList.toggle('error', on);
+      if (on) b.classList.remove('filled');
+    });
+    otpError.classList.toggle('d-none', !on);
+  }
+
+  boxes.forEach((box, idx) => {
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Backspace') {
+        if (!this.value && idx > 0) {
+          boxes[idx - 1].value = '';
+          boxes[idx - 1].classList.remove('filled');
+          boxes[idx - 1].focus();
         }
-    }
-});
+        this.value = '';
+        this.classList.remove('filled');
+        syncHidden();
+        markError(false);
+      }
+    });
 
-// Form validation
-document.getElementById('otpForm').addEventListener('submit', function(event) {
-    const otpInput = document.getElementById('otp');
-    const otp = otpInput.value.trim();
-    
-    if (otp.length !== 6 || !/^[0-9]{6}$/.test(otp)) {
-        event.preventDefault();
-        event.stopPropagation();
-        otpInput.classList.add('is-invalid');
+    box.addEventListener('input', function (e) {
+      const val = this.value.replace(/\D/g, '');
+      if (!val) { this.value = ''; this.classList.remove('filled'); syncHidden(); return; }
+
+      // Handle paste of full code into first box
+      if (val.length > 1 && idx === 0) {
+        const digits = val.slice(0, 6).split('');
+        digits.forEach((d, i) => {
+          if (boxes[i]) {
+            boxes[i].value = d;
+            boxes[i].classList.add('filled');
+          }
+        });
+        syncHidden();
+        const next = Math.min(digits.length, 5);
+        boxes[next].focus();
+        if (getOtpValue().length === 6) autoSubmit();
+        return;
+      }
+
+      this.value = val[0];
+      this.classList.add('filled');
+      syncHidden();
+      markError(false);
+      if (idx < 5) boxes[idx + 1].focus();
+      if (getOtpValue().length === 6) autoSubmit();
+    });
+
+    box.addEventListener('paste', function (e) {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+      pasted.split('').forEach((d, i) => {
+        if (boxes[i]) { boxes[i].value = d; boxes[i].classList.add('filled'); }
+      });
+      syncHidden();
+      const next = Math.min(pasted.length, 5);
+      boxes[next].focus();
+      if (pasted.length === 6) autoSubmit();
+    });
+  });
+
+  function autoSubmit() {
+    setTimeout(() => {
+      if (getOtpValue().length === 6) form.submit();
+    }, 120);
+  }
+
+  form.addEventListener('submit', function (e) {
+    syncHidden();
+    if (getOtpValue().length !== 6) {
+      e.preventDefault();
+      markError(true);
+      return;
+    }
+    markError(false);
+    submitBtn.disabled = true;
+    btnText.classList.add('d-none');
+    btnLoad.classList.remove('d-none');
+  });
+
+  // ── Countdown timer ──────────────────────────────────────────
+  const TOTAL = 600;
+  let left = TOTAL;
+
+  function updateTimer() {
+    const pct = (left / TOTAL) * 100;
+    timerBar.style.width = pct + '%';
+    if (pct < 25) timerBar.style.background = '#dc3545';
+    else if (pct < 50) timerBar.style.background = '#ffc107';
+    else timerBar.style.background = '#198754';
+
+    const m = Math.floor(left / 60);
+    const s = left % 60;
+    if (left > 0) {
+      timerText.textContent = `Code expires in ${m}:${String(s).padStart(2,'0')}`;
+      timerText.className = 'timer-text';
+      left--;
     } else {
-        otpInput.classList.remove('is-invalid');
-        otpInput.classList.add('is-valid');
+      timerText.textContent = 'Code expired — please request a new one';
+      timerText.className = 'timer-text expired';
+      submitBtn.disabled = true;
+      boxes.forEach(b => b.disabled = true);
     }
-    
-    this.classList.add('was-validated');
-});
+  }
 
-// Countdown timer (10 minutes)
-let timeLeft = 600; // 10 minutes in seconds
-const timerElement = document.getElementById('timer');
+  updateTimer();
+  const timerInterval = setInterval(updateTimer, 1000);
 
-function updateTimer() {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    timerElement.textContent = `Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-    
-    if (timeLeft <= 0) {
-        timerElement.textContent = 'Code expired';
-        timerElement.classList.add('text-danger');
-        document.getElementById('otp').disabled = true;
-        document.querySelector('button[type="submit"]').disabled = true;
-    } else {
-        timeLeft--;
-    }
-}
-
-// Update timer every second
-setInterval(updateTimer, 1000);
-updateTimer();
-
-// Resend button cooldown
-let resendCooldown = 0;
-const resendBtn = document.getElementById('resendBtn');
-
-resendBtn.addEventListener('click', function() {
-    if (resendCooldown > 0) {
-        return false;
-    }
-    
-    resendCooldown = 60;
-    this.disabled = true;
-    
-    const originalText = this.textContent;
-    const interval = setInterval(() => {
-        this.textContent = `Resend OTP (${resendCooldown}s)`;
-        resendCooldown--;
-        
-        if (resendCooldown <= 0) {
-            clearInterval(interval);
-            this.textContent = originalText;
-            this.disabled = false;
-            
-            // Reset timer
-            timeLeft = 600;
-            timerElement.classList.remove('text-danger');
-            document.getElementById('otp').disabled = false;
-            document.querySelector('button[type="submit"]').disabled = false;
-        }
+  // ── Resend cooldown ──────────────────────────────────────────
+  let cooldown = 0;
+  document.getElementById('resendForm').addEventListener('submit', function () {
+    if (cooldown > 0) return;
+    cooldown = 60;
+    resendBtn.disabled = true;
+    const iv = setInterval(() => {
+      resendBtn.textContent = `Resend code (${cooldown}s)`;
+      cooldown--;
+      if (cooldown <= 0) {
+        clearInterval(iv);
+        resendBtn.textContent = 'Resend code';
+        resendBtn.disabled = false;
+        // Reset timer
+        left = TOTAL;
+        submitBtn.disabled = false;
+        boxes.forEach(b => b.disabled = false);
+        timerText.className = 'timer-text';
+      }
     }, 1000);
-});
+  });
+})();
 </script>
 {% endblock %}

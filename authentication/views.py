@@ -92,11 +92,11 @@ class VerifyOTPView(View):
             messages.success(request, 'Login successful!')
             logger.info(f"User {email} logged in successfully")
             
-            # Redirect based on user type
+            # Redirect based on user type (authority takes priority)
             if user.is_authority:
-                return redirect('complaints:authority_dashboard')
+                return redirect('admin_dashboard')
             elif user.is_staff_member:
-                return redirect('home')  # Will be 'staff:my_assignments' when implemented
+                return redirect('staff:my_assignments')
             else:  # citizen
                 return redirect('home')
         else:

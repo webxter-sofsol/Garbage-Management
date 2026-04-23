@@ -1,224 +1,642 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Complaint Dashboard - GCMS{% endblock %}
+{% block title %}Complaints Dashboard — GCMS{% endblock %}
 
 {% block extra_css %}
 <style>
-.filter-card {
+  /* ── Page header ── */
+  .dash-header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    border-radius: 16px;
+    padding: 1.75rem 2rem;
+    color: #fff;
+    margin-bottom: 1.75rem;
+  }
+  .dash-header .dash-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: .2rem;
+  }
+  .dash-header .dash-subtitle {
+    opacity: .82;
+    font-size: .93rem;
+  }
+  .dash-header .dash-date {
+    font-size: .82rem;
+    opacity: .75;
+    text-align: right;
+  }
+  .dash-header .dash-date strong {
+    display: block;
+    font-size: 1rem;
+    opacity: 1;
+    font-weight: 600;
+  }
+
+  /* ── Stat cards ── */
+  .stat-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    padding: 1.1rem 1.25rem;
+    border-left: 4px solid transparent;
+    height: 100%;
+  }
+  .stat-card.stat-total    { border-left-color: #6c757d; }
+  .stat-card.stat-pending  { border-left-color: #ffc107; }
+  .stat-card.stat-assigned { border-left-color: #0dcaf0; }
+  .stat-card.stat-resolved { border-left-color: #198754; }
+
+  .stat-card .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+  }
+  .stat-card.stat-total    .stat-icon { background: #f0f0f0;  color: #6c757d; }
+  .stat-card.stat-pending  .stat-icon { background: #fff8e1;  color: #e65100; }
+  .stat-card.stat-assigned .stat-icon { background: #e0f7fa;  color: #006064; }
+  .stat-card.stat-resolved .stat-icon { background: #d1e7dd;  color: #0a3622; }
+
+  .stat-card .stat-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #1a1a2e;
+  }
+  .stat-card .stat-label {
+    font-size: .8rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin-top: .15rem;
+  }
+
+  /* ── Filter bar ── */
+  .filter-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .filter-card .form-control:focus,
+  .filter-card .form-select:focus {
+    border-color: #198754;
+    box-shadow: 0 0 0 .2rem rgba(25,135,84,.18);
+  }
+  .advanced-toggle {
+    font-size: .83rem;
+    color: #198754;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .advanced-toggle:hover { text-decoration: underline; color: #0f5132; }
+  .filters-active-badge {
+    font-size: .7rem;
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    border-radius: 50px;
+    padding: .2em .65em;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+
+  /* ── Results header ── */
+  .results-header {
+    font-size: .88rem;
+    color: #6c757d;
+    margin-bottom: .75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .results-header .count { font-weight: 600; color: #212529; }
+
+  /* ── Status pills ── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .28em .75em;
+    border-radius: 50px;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .s-pending    { background: #fff3cd; color: #664d03; }
+  .s-assigned   { background: #cff4fc; color: #055160; }
+  .s-in-progress { background: #d1e7dd; color: #0a3622; }
+  .s-resolved   { background: #0f5132; color: #fff; }
+  .s-closed     { background: #e2e3e5; color: #41464b; }
+
+  /* ── Complaint ID badge ── */
+  .cid-badge {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: .75rem;
+    background: #f0fdf4;
+    color: #0f5132;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: .2em .55em;
+    font-weight: 600;
+    letter-spacing: .03em;
+    white-space: nowrap;
+  }
+
+  /* ── Desktop table ── */
+  .complaints-table {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+  }
+  .complaints-table thead th {
     background: #f8f9fa;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-.complaint-card {
-    border-left: 4px solid #6c757d;
-    transition: transform 0.2s;
-}
-.complaint-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-.complaint-card.status-pending {
-    border-left-color: #ffc107;
-}
-.complaint-card.status-assigned {
-    border-left-color: #17a2b8;
-}
-.complaint-card.status-in-progress {
-    border-left-color: #007bff;
-}
-.complaint-card.status-resolved {
-    border-left-color: #28a745;
-}
-.complaint-card.status-closed {
-    border-left-color: #6c757d;
-}
-.badge-status {
-    font-size: 0.85rem;
-    padding: 0.4em 0.8em;
-}
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6c757d;
+    border-bottom: 2px solid #e9ecef;
+    padding: .85rem 1rem;
+    white-space: nowrap;
+  }
+  .complaints-table tbody td {
+    padding: .85rem 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: .875rem;
+  }
+  .complaints-table tbody tr:last-child td { border-bottom: none; }
+  .complaints-table tbody tr:hover { background: #f8fffe; }
+  .complaints-table .desc-text {
+    color: #374151;
+    line-height: 1.4;
+  }
+  .complaints-table .staff-sub {
+    font-size: .75rem;
+    color: #198754;
+    margin-top: .2rem;
+  }
+  .complaints-table .citizen-email {
+    font-size: .8rem;
+    color: #6c757d;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .complaints-table .location-text {
+    font-size: .8rem;
+    color: #6c757d;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Mobile complaint cards ── */
+  .mobile-complaint-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    overflow: hidden;
+    margin-bottom: .75rem;
+    display: flex;
+  }
+  .mobile-complaint-card .card-status-bar {
+    width: 4px;
+    flex-shrink: 0;
+  }
+  .mobile-complaint-card .card-status-bar.s-pending    { background: #ffc107; }
+  .mobile-complaint-card .card-status-bar.s-assigned   { background: #0dcaf0; }
+  .mobile-complaint-card .card-status-bar.s-in-progress { background: #198754; }
+  .mobile-complaint-card .card-status-bar.s-resolved   { background: #0f5132; }
+  .mobile-complaint-card .card-status-bar.s-closed     { background: #6c757d; }
+  .mobile-complaint-card .card-body-inner {
+    padding: .9rem 1rem;
+    flex: 1;
+    min-width: 0;
+  }
+  .mobile-complaint-card .card-meta {
+    font-size: .78rem;
+    color: #6c757d;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-top: .5rem;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+  }
+  .empty-state .icon-circle {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: #d1e7dd;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+  }
+  .empty-state .icon-circle i { font-size: 2.4rem; color: #198754; }
+  .empty-state h5 { font-weight: 700; color: #1a1a2e; margin-bottom: .4rem; }
+  .empty-state p  { color: #6c757d; font-size: .93rem; }
+
+  /* ── Pagination ── */
+  .pagination .page-link {
+    border-radius: 8px !important;
+    margin: 0 2px;
+    color: #198754;
+    border-color: #dee2e6;
+    font-size: .875rem;
+  }
+  .pagination .page-link:hover { background: #d1e7dd; border-color: #a3cfbb; }
+  .pagination .page-item.active .page-link {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+  }
+  .pagination .page-item.disabled .page-link { color: #adb5bd; }
+
+  @media (max-width: 576px) {
+    .dash-header { padding: 1.2rem 1.1rem; }
+    .dash-header .dash-title { font-size: 1.3rem; }
+    .stat-card .stat-number { font-size: 1.5rem; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <h4 class="mb-4"><i class="bi bi-clipboard-data text-success"></i> Complaint Dashboard</h4>
-            
-            <!-- Filters -->
-            <div class="filter-card">
-                <form method="get" id="filterForm">
-                    <div class="row g-3">
-                        <!-- Status Filter -->
-                        <div class="col-md-3">
-                            <label for="status" class="form-label">Status</label>
-                            <select class="form-select" id="status" name="status">
-                                <option value="">All Statuses</option>
-                                <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
-                                <option value="assigned" {% if request.GET.status == 'assigned' %}selected{% endif %}>Assigned</option>
-                                <option value="in-progress" {% if request.GET.status == 'in-progress' %}selected{% endif %}>In Progress</option>
-                                <option value="resolved" {% if request.GET.status == 'resolved' %}selected{% endif %}>Resolved</option>
-                                <option value="closed" {% if request.GET.status == 'closed' %}selected{% endif %}>Closed</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Date From -->
-                        <div class="col-md-3">
-                            <label for="date_from" class="form-label">From Date</label>
-                            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ request.GET.date_from }}">
-                        </div>
-                        
-                        <!-- Date To -->
-                        <div class="col-md-3">
-                            <label for="date_to" class="form-label">To Date</label>
-                            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ request.GET.date_to }}">
-                        </div>
-                        
-                        <!-- Sort By -->
-                        <div class="col-md-3">
-                            <label for="ordering" class="form-label">Sort By</label>
-                            <select class="form-select" id="ordering" name="ordering">
-                                <option value="-created_at" {% if request.GET.ordering == '-created_at' or not request.GET.ordering %}selected{% endif %}>Newest First</option>
-                                <option value="created_at" {% if request.GET.ordering == 'created_at' %}selected{% endif %}>Oldest First</option>
-                                <option value="status" {% if request.GET.ordering == 'status' %}selected{% endif %}>Status (A-Z)</option>
-                                <option value="-status" {% if request.GET.ordering == '-status' %}selected{% endif %}>Status (Z-A)</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Search -->
-                        <div class="col-md-9">
-                            <label for="search" class="form-label">Search</label>
-                            <input type="text" class="form-control" id="search" name="search" placeholder="Search by ID, description, or address..." value="{{ request.GET.search }}">
-                        </div>
-                        
-                        <!-- Buttons -->
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-success me-2">
-                                <i class="bi bi-funnel"></i> Filter
-                            </button>
-                            <a href="{% url 'complaints:authority_dashboard' %}" class="btn btn-outline-secondary">
-                                <i class="bi bi-x-circle"></i> Clear
-                            </a>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- Stats Summary -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ stats.total }}</h5>
-                            <p class="card-text text-muted">Total Complaints</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-center border-warning">
-                        <div class="card-body">
-                            <h5 class="card-title text-warning">{{ stats.pending }}</h5>
-                            <p class="card-text text-muted">Pending</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-center border-info">
-                        <div class="card-body">
-                            <h5 class="card-title text-info">{{ stats.assigned }}</h5>
-                            <p class="card-text text-muted">Assigned</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-center border-success">
-                        <div class="card-body">
-                            <h5 class="card-title text-success">{{ stats.resolved }}</h5>
-                            <p class="card-text text-muted">Resolved</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Complaints List -->
-            {% if complaints %}
-                <div class="row">
-                    {% for complaint in complaints %}
-                    <div class="col-12 mb-3">
-                        <div class="card complaint-card status-{{ complaint.status }}">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="mb-0">
-                                        <a href="{% url 'complaints:detail' complaint.complaint_id %}" class="text-decoration-none">
-                                            {{ complaint.complaint_id }}
-                                        </a>
-                                    </h6>
-                                    <span class="badge badge-status bg-{{ complaint.status|default:'secondary' }}">
-                                        {{ complaint.get_status_display }}
-                                    </span>
-                                </div>
-                                
-                                <p class="mb-2 text-truncate">{{ complaint.description }}</p>
-                                
-                                <div class="row g-2 small text-muted">
-                                    <div class="col-md-4">
-                                        <i class="bi bi-person"></i> {{ complaint.citizen.email }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <i class="bi bi-geo-alt"></i> {{ complaint.address|default:"Location not available"|truncatewords:5 }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <i class="bi bi-calendar"></i> {{ complaint.created_at|date:"M d, Y H:i" }}
-                                    </div>
-                                </div>
-                                
-                                {% if complaint.assigned_staff %}
-                                <div class="mt-2 small">
-                                    <i class="bi bi-person-badge text-info"></i> Assigned to: {{ complaint.assigned_staff.name }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                
-                <!-- Pagination -->
-                {% if is_paginated %}
-                <nav aria-label="Complaint pagination">
-                    <ul class="pagination justify-content-center">
-                        {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.ordering %}&ordering={{ request.GET.ordering }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">First</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.ordering %}&ordering={{ request.GET.ordering }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Previous</a>
-                        </li>
-                        {% endif %}
-                        
-                        <li class="page-item active">
-                            <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-                        </li>
-                        
-                        {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.ordering %}&ordering={{ request.GET.ordering }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Next</a>
-        </li>
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}{% if request.GET.ordering %}&ordering={{ request.GET.ordering }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Last</a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-                {% endif %}
-            {% else %}
-                <div class="alert alert-info text-center">
-                    <i class="bi bi-info-circle"></i> No complaints found matching your filters.
-                </div>
-            {% endif %}
-        </div>
+<div class="container py-4 pb-5">
+
+  {# ── Page Header ── #}
+  <div class="dash-header d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+    <div>
+      <div class="dash-title"><i class="bi bi-clipboard-data me-2"></i>Complaints Dashboard</div>
+      <div class="dash-subtitle">Manage and track all reported waste issues</div>
     </div>
+    <div class="dash-date">
+      <span style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;opacity:.7;">Today</span>
+      <strong>{% now "N j, Y" %}</strong>
+    </div>
+  </div>
+
+  {# ── Stats Row ── #}
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="stat-card stat-total">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon"><i class="bi bi-clipboard2"></i></div>
+          <div>
+            <div class="stat-number">{{ stats.total }}</div>
+            <div class="stat-label">Total</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card stat-pending">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon"><i class="bi bi-clock-fill"></i></div>
+          <div>
+            <div class="stat-number">{{ stats.pending }}</div>
+            <div class="stat-label">Pending</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card stat-assigned">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon"><i class="bi bi-person-check-fill"></i></div>
+          <div>
+            <div class="stat-number">{{ stats.assigned }}</div>
+            <div class="stat-label">Assigned</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card stat-resolved">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+          <div>
+            <div class="stat-number">{{ stats.resolved }}</div>
+            <div class="stat-label">Resolved</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Filter Bar ── #}
+  <div class="filter-card">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <span class="fw-semibold" style="font-size:.9rem;">
+        <i class="bi bi-funnel me-1 text-success"></i>Filters
+        {% if request.GET.status or request.GET.date_from or request.GET.date_to or request.GET.search %}
+          <span class="filters-active-badge ms-1">Filters active</span>
+        {% endif %}
+      </span>
+      <a class="advanced-toggle" id="advancedToggle" href="#">
+        <i class="bi bi-sliders me-1"></i>Advanced Filters
+        <i class="bi bi-chevron-down ms-1" id="advancedChevron"></i>
+      </a>
+    </div>
+
+    <form method="GET" action="{% url 'complaints:authority_dashboard' %}" id="filterForm">
+      {# Row 1: main filters #}
+      <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <input type="text" name="search" class="form-control form-control-sm"
+                 placeholder="Search by ID, description or address…"
+                 value="{{ request.GET.search }}">
+        </div>
+        <div class="col-md-2">
+          <select name="status" class="form-select form-select-sm" id="statusSelect">
+            <option value="">All Statuses</option>
+            <option value="pending"     {% if request.GET.status == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="assigned"    {% if request.GET.status == 'assigned' %}selected{% endif %}>Assigned</option>
+            <option value="in-progress" {% if request.GET.status == 'in-progress' %}selected{% endif %}>In Progress</option>
+            <option value="resolved"    {% if request.GET.status == 'resolved' %}selected{% endif %}>Resolved</option>
+            <option value="closed"      {% if request.GET.status == 'closed' %}selected{% endif %}>Closed</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select name="ordering" class="form-select form-select-sm" id="orderingSelect">
+            <option value="-created_at" {% if request.GET.ordering == '-created_at' or not request.GET.ordering %}selected{% endif %}>Newest First</option>
+            <option value="created_at"  {% if request.GET.ordering == 'created_at' %}selected{% endif %}>Oldest First</option>
+            <option value="status"      {% if request.GET.ordering == 'status' %}selected{% endif %}>Status A–Z</option>
+            <option value="-status"     {% if request.GET.ordering == '-status' %}selected{% endif %}>Status Z–A</option>
+          </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn btn-success btn-sm px-3">
+            <i class="bi bi-search me-1"></i>Filter
+          </button>
+          <a href="{% url 'complaints:authority_dashboard' %}" class="btn btn-outline-secondary btn-sm px-3">
+            <i class="bi bi-x-circle me-1"></i>Clear
+          </a>
+        </div>
+      </div>
+
+      {# Row 2: advanced (date range) #}
+      <div class="row g-2 mt-1" id="advancedFilters" style="display:none !important;">
+        <div class="col-md-3">
+          <label class="form-label form-label-sm mb-1" style="font-size:.78rem;color:#6c757d;font-weight:600;">Date From</label>
+          <input type="date" name="date_from" class="form-control form-control-sm"
+                 value="{{ request.GET.date_from }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label form-label-sm mb-1" style="font-size:.78rem;color:#6c757d;font-weight:600;">Date To</label>
+          <input type="date" name="date_to" class="form-control form-control-sm"
+                 value="{{ request.GET.date_to }}">
+        </div>
+      </div>
+    </form>
+  </div>
+
+  {# ── Results Header ── #}
+  <div class="results-header">
+    <span>
+      Showing <span class="count">{{ complaints|length }}</span>
+      complaint{{ complaints|length|pluralize }}
+      {% if is_paginated %} on this page{% endif %}
+    </span>
+    {% if is_paginated %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% endif %}
+  </div>
+
+  {% if complaints %}
+
+  {# ── Desktop Table ── #}
+  <div class="d-none d-md-block complaints-table bg-white mb-3">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Description</th>
+          <th>Citizen</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for complaint in complaints %}
+        <tr>
+          <td><span class="cid-badge">{{ complaint.complaint_id }}</span></td>
+          <td style="max-width:220px;">
+            <div class="desc-text">{{ complaint.description|truncatechars:60 }}</div>
+            {% if complaint.assigned_staff %}
+            <div class="staff-sub">
+              <i class="bi bi-person-check me-1"></i>{{ complaint.assigned_staff.name }}
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            <div class="citizen-email" title="{{ complaint.citizen.email }}">
+              {{ complaint.citizen.email }}
+            </div>
+          </td>
+          <td>
+            <div class="location-text" title="{{ complaint.address }}">
+              {{ complaint.address|default:"—"|truncatechars:40 }}
+            </div>
+          </td>
+          <td>
+            {% if complaint.status == 'pending' %}
+              <span class="status-pill s-pending"><i class="bi bi-clock"></i>Pending</span>
+            {% elif complaint.status == 'assigned' %}
+              <span class="status-pill s-assigned"><i class="bi bi-person-check"></i>Assigned</span>
+            {% elif complaint.status == 'in-progress' %}
+              <span class="status-pill s-in-progress"><i class="bi bi-arrow-repeat"></i>In Progress</span>
+            {% elif complaint.status == 'resolved' %}
+              <span class="status-pill s-resolved"><i class="bi bi-check-circle"></i>Resolved</span>
+            {% elif complaint.status == 'closed' %}
+              <span class="status-pill s-closed"><i class="bi bi-archive"></i>Closed</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;color:#6c757d;font-size:.82rem;">
+            {{ complaint.created_at|date:"M d, Y" }}
+          </td>
+          <td>
+            <a href="{% url 'complaints:detail' complaint.complaint_id %}"
+               class="btn btn-outline-success btn-sm">
+              <i class="bi bi-eye me-1"></i>View
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ── Mobile Cards ── #}
+  <div class="d-md-none">
+    {% for complaint in complaints %}
+    <div class="mobile-complaint-card">
+      <div class="card-status-bar s-{{ complaint.status }}"></div>
+      <div class="card-body-inner">
+        <div class="d-flex align-items-start justify-content-between gap-2 mb-1">
+          <span class="cid-badge">{{ complaint.complaint_id }}</span>
+          {% if complaint.status == 'pending' %}
+            <span class="status-pill s-pending"><i class="bi bi-clock"></i>Pending</span>
+          {% elif complaint.status == 'assigned' %}
+            <span class="status-pill s-assigned"><i class="bi bi-person-check"></i>Assigned</span>
+          {% elif complaint.status == 'in-progress' %}
+            <span class="status-pill s-in-progress"><i class="bi bi-arrow-repeat"></i>In Progress</span>
+          {% elif complaint.status == 'resolved' %}
+            <span class="status-pill s-resolved"><i class="bi bi-check-circle"></i>Resolved</span>
+          {% elif complaint.status == 'closed' %}
+            <span class="status-pill s-closed"><i class="bi bi-archive"></i>Closed</span>
+          {% endif %}
+        </div>
+        <p class="mb-1" style="font-size:.88rem;color:#374151;line-height:1.4;">
+          {{ complaint.description|truncatechars:80 }}
+        </p>
+        <div class="card-meta">
+          <span><i class="bi bi-person me-1"></i>{{ complaint.citizen.email|truncatechars:28 }}</span>
+          <span><i class="bi bi-calendar3 me-1"></i>{{ complaint.created_at|date:"M d, Y" }}</span>
+          {% if complaint.assigned_staff %}
+          <span class="text-success"><i class="bi bi-person-check me-1"></i>{{ complaint.assigned_staff.name }}</span>
+          {% endif %}
+        </div>
+        <div class="mt-2">
+          <a href="{% url 'complaints:detail' complaint.complaint_id %}"
+             class="btn btn-outline-success btn-sm">
+            <i class="bi bi-eye me-1"></i>View
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+
+  {# ── Empty State ── #}
+  <div class="empty-state">
+    <div class="icon-circle">
+      <i class="bi bi-clipboard2-x"></i>
+    </div>
+    <h5>No complaints found</h5>
+    <p>No complaints match your current filters.</p>
+    <a href="{% url 'complaints:authority_dashboard' %}" class="btn btn-outline-success rounded-pill px-4">
+      <i class="bi bi-x-circle me-1"></i>Clear filters
+    </a>
+  </div>
+
+  {% endif %}
+
+  {# ── Pagination ── #}
+  {% if is_paginated %}
+  <nav aria-label="Complaints pagination" class="mt-4">
+    <ul class="pagination justify-content-center flex-wrap">
+
+      {# Build base query string without page param #}
+      {% with qs_status=request.GET.status qs_df=request.GET.date_from qs_dt=request.GET.date_to qs_ord=request.GET.ordering qs_s=request.GET.search %}
+
+      {# Previous #}
+      <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+        {% if page_obj.has_previous %}
+          <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if qs_status %}&status={{ qs_status }}{% endif %}{% if qs_df %}&date_from={{ qs_df }}{% endif %}{% if qs_dt %}&date_to={{ qs_dt }}{% endif %}{% if qs_ord %}&ordering={{ qs_ord }}{% endif %}{% if qs_s %}&search={{ qs_s }}{% endif %}">
+            <i class="bi bi-chevron-left"></i>
+          </a>
+        {% else %}
+          <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+        {% endif %}
+      </li>
+
+      {# Page numbers #}
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+          <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+          </li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ num }}{% if qs_status %}&status={{ qs_status }}{% endif %}{% if qs_df %}&date_from={{ qs_df }}{% endif %}{% if qs_dt %}&date_to={{ qs_dt }}{% endif %}{% if qs_ord %}&ordering={{ qs_ord }}{% endif %}{% if qs_s %}&search={{ qs_s }}{% endif %}">{{ num }}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+
+      {# Next #}
+      <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+        {% if page_obj.has_next %}
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if qs_status %}&status={{ qs_status }}{% endif %}{% if qs_df %}&date_from={{ qs_df }}{% endif %}{% if qs_dt %}&date_to={{ qs_dt }}{% endif %}{% if qs_ord %}&ordering={{ qs_ord }}{% endif %}{% if qs_s %}&search={{ qs_s }}{% endif %}">
+            <i class="bi bi-chevron-right"></i>
+          </a>
+        {% else %}
+          <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+        {% endif %}
+      </li>
+
+      {% endwith %}
+    </ul>
+  </nav>
+  {% endif %}
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // ── Advanced filters toggle ──────────────────────────────────
+  const toggle    = document.getElementById('advancedToggle');
+  const panel     = document.getElementById('advancedFilters');
+  const chevron   = document.getElementById('advancedChevron');
+  const dateFrom  = document.querySelector('[name="date_from"]');
+  const dateTo    = document.querySelector('[name="date_to"]');
+
+  function showAdvanced() {
+    panel.style.setProperty('display', 'flex', 'important');
+    chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+  }
+  function hideAdvanced() {
+    panel.style.setProperty('display', 'none', 'important');
+    chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
+  }
+
+  // Auto-expand if date filters are active
+  if ((dateFrom && dateFrom.value) || (dateTo && dateTo.value)) {
+    showAdvanced();
+  }
+
+  toggle.addEventListener('click', function (e) {
+    e.preventDefault();
+    const visible = panel.style.display !== 'none' && panel.style.getPropertyValue('display') !== 'none';
+    // Check computed style since we use !important
+    const isHidden = window.getComputedStyle(panel).display === 'none';
+    if (isHidden) { showAdvanced(); } else { hideAdvanced(); }
+  });
+
+  // ── Auto-submit on status / ordering change ──────────────────
+  ['statusSelect', 'orderingSelect'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', function () {
+        document.getElementById('filterForm').submit();
+      });
+    }
+  });
+})();
+</script>
 {% endblock %}

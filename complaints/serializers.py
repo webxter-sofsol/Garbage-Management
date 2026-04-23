@@ -8,7 +8,7 @@ class CitizenSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['email', 'phone_number']
+        fields = ['email']
 
 
 class ComplaintPhotoSerializer(serializers.ModelSerializer):

@@ -1,246 +1,777 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Complaint {{ complaint.complaint_id }} - GCMS{% endblock %}
+{% block title %}{{ complaint.complaint_id }} — Complaint Detail · GCMS{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  /* ── Page header ── */
+  .complaint-header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    color: #fff;
+    margin-bottom: 1.75rem;
+  }
+  .complaint-header .complaint-id {
+    font-family: 'Courier New', monospace;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .complaint-header .submitted-date {
+    font-size: .85rem;
+    opacity: .85;
+  }
+
+  /* ── Status pill ── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .3em .85em;
+    border-radius: 50px;
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+  .status-pill.s-pending   { background:#fff3cd; color:#664d03; }
+  .status-pill.s-assigned  { background:#cff4fc; color:#055160; }
+  .status-pill.s-in-progress { background:#d1e7dd; color:#0a3622; }
+  .status-pill.s-resolved  { background:#0f5132; color:#fff; }
+  .status-pill.s-closed    { background:#e2e3e5; color:#41464b; }
+
+  /* ── Timeline stepper ── */
+  .timeline-stepper {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    position: relative;
+    padding: 0 .5rem;
+    margin-bottom: .25rem;
+  }
+  .timeline-stepper::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: calc(10% + 18px);
+    right: calc(10% + 18px);
+    height: 2px;
+    background: #dee2e6;
+    z-index: 0;
+  }
+  .timeline-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .step-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .85rem;
+    border: 2px solid #dee2e6;
+    background: #fff;
+    color: #adb5bd;
+    transition: all .3s;
+  }
+  .step-circle.done {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+  }
+  .step-circle.current {
+    background: #fff;
+    border-color: #198754;
+    color: #198754;
+    animation: pulse-ring 1.8s ease-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(25,135,84,.45); }
+    70%  { box-shadow: 0 0 0 8px rgba(25,135,84,0); }
+    100% { box-shadow: 0 0 0 0 rgba(25,135,84,0); }
+  }
+  .step-label {
+    font-size: .7rem;
+    margin-top: .4rem;
+    color: #6c757d;
+    text-align: center;
+    font-weight: 500;
+  }
+  .step-label.done, .step-label.current { color: #198754; font-weight: 600; }
+
+  /* ── Content cards ── */
+  .detail-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    border: none;
+    margin-bottom: 1.25rem;
+  }
+  .detail-card .card-header-custom {
+    padding: 1rem 1.25rem .6rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-weight: 600;
+    font-size: .9rem;
+    color: #212529;
+  }
+  .detail-card .card-header-custom i {
+    color: #198754;
+    font-size: 1rem;
+  }
+  .detail-card .card-body-custom {
+    padding: 1rem 1.25rem 1.25rem;
+  }
+
+  /* ── Map ── */
+  #complaint-map {
+    height: 200px;
+    border-radius: 10px;
+    margin-top: .75rem;
+    z-index: 0;
+  }
+
+  /* ── Photo grid ── */
+  .photo-section-label {
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6c757d;
+    margin-bottom: .6rem;
+  }
+  .photo-thumb-wrap {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    aspect-ratio: 1;
+    background: #f8f9fa;
+  }
+  .photo-thumb-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .25s;
+  }
+  .photo-thumb-wrap:hover img { transform: scale(1.05); }
+  .photo-type-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    font-size: .65rem;
+    font-weight: 700;
+    padding: .2em .55em;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .photo-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s;
+  }
+  .photo-thumb-wrap:hover .photo-overlay { background: rgba(0,0,0,.25); }
+  .photo-overlay i { color: #fff; font-size: 1.4rem; opacity: 0; transition: opacity .2s; }
+  .photo-thumb-wrap:hover .photo-overlay i { opacity: 1; }
+
+  /* ── Sidebar detail rows ── */
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .45rem 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: .875rem;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-row .label { color: #6c757d; font-weight: 500; }
+  .detail-row .value { font-weight: 600; color: #212529; text-align: right; max-width: 60%; }
+
+  /* ── Staff card ── */
+  .staff-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d1e7dd, #a3cfbb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: #0a3622;
+    flex-shrink: 0;
+  }
+
+  /* ── Assign card ── */
+  .assign-card .form-select:focus { border-color: #198754; box-shadow: 0 0 0 .2rem rgba(25,135,84,.2); }
+  .staff-info-box {
+    background: #f8fffe;
+    border: 1px solid #d1e7dd;
+    border-radius: 8px;
+    padding: .6rem .85rem;
+    font-size: .82rem;
+    color: #0a3622;
+    margin-top: .5rem;
+    display: none;
+  }
+  .staff-info-box.visible { display: block; }
+
+  /* ── Back button ── */
+  .btn-back {
+    border: 1.5px solid rgba(255,255,255,.6);
+    color: #fff;
+    background: transparent;
+    border-radius: 8px;
+    padding: .3rem .75rem;
+    font-size: .82rem;
+    transition: background .2s;
+  }
+  .btn-back:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+  /* ── Responsive tweaks ── */
+  @media (max-width: 576px) {
+    .complaint-header { padding: 1.1rem 1.1rem; }
+    .timeline-stepper::before { top: 15px; }
+    .step-circle { width: 30px; height: 30px; font-size: .75rem; }
+    .step-label { font-size: .62rem; }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5>{{ complaint.complaint_id }}</h5>
-                <span class="badge bg-{{ complaint.status|default:'secondary' }} status-{{ complaint.status }}">
-                    {{ complaint.get_status_display }}
-                </span>
-            </div>
+<div class="container py-3 pb-5">
 
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted">Description</h6>
-                    <p class="card-text">{{ complaint.description }}</p>
-                </div>
-            </div>
-
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted">Location</h6>
-                    <p class="card-text">
-                        <i class="bi bi-geo-alt"></i> {{ complaint.address|default:"Location not available" }}
-                    </p>
-                    {% if complaint.address %}
-                    <small class="text-muted">{{ complaint.latitude }}, {{ complaint.longitude }}</small>
-                    {% endif %}
-                </div>
-            </div>
-
-            {% if photos %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted">Photos</h6>
-                    
-                    {% with before_photos=photos|dictsort:"photo_type" after_photos=photos|dictsort:"photo_type" %}
-                    
-                    <!-- Before Photos -->
-                    {% if complaint.status != 'pending' or photos %}
-                    <div class="mb-3">
-                        <strong class="d-block mb-2">Before Photos:</strong>
-                        <div class="row g-2">
-                            {% for photo in photos %}
-                            {% if photo.photo_type == 'before' %}
-                            <div class="col-md-3 col-4">
-                                <div class="position-relative">
-                                    <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="Before photo">
-                                    <span class="badge bg-secondary position-absolute top-0 start-0 m-1">Before</span>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    <!-- After Photos -->
-                    {% if complaint.status in 'resolved,closed' %}
-                    <div>
-                        <strong class="d-block mb-2">After Photos:</strong>
-                        <div class="row g-2">
-                            {% for photo in photos %}
-                            {% if photo.photo_type == 'after' %}
-                            <div class="col-md-3 col-4">
-                                <div class="position-relative">
-                                    <img src="{{ photo.photo.url }}" class="img-fluid rounded" alt="After photo">
-                                    <span class="badge bg-success position-absolute top-0 start-0 m-1">After</span>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    
-                    {% endwith %}
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="card mb-3">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted">Details</h6>
-                    <p class="mb-1"><strong>Submitted:</strong> {{ complaint.created_at|date:"M d, Y H:i" }}</p>
-                    {% if complaint.assigned_staff %}
-                    <p class="mb-1"><strong>Assigned to:</strong> {{ complaint.assigned_staff.name }}</p>
-                    {% endif %}
-                    {% if complaint.resolved_at %}
-                    <p class="mb-0"><strong>Resolved:</strong> {{ complaint.resolved_at|date:"M d, Y H:i" }}</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            {% if user.is_authority and complaint.status in 'pending,assigned' %}
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-3 text-muted">Assign Staff</h6>
-                    <div id="assignmentMessage" class="alert d-none"></div>
-                    <div class="mb-3">
-                        <label for="staffSelect" class="form-label">Select Staff Member</label>
-                        <select class="form-select" id="staffSelect">
-                            <option value="">Loading staff...</option>
-                        </select>
-                        <div id="staffInfo" class="mt-2 small text-muted"></div>
-                    </div>
-                    <button type="button" class="btn btn-success" id="assignBtn" disabled>
-                        <span id="assignBtnText"><i class="bi bi-person-check"></i> Assign Staff</span>
-                        <span id="assignBtnSpinner" class="d-none">
-                            <span class="spinner-border spinner-border-sm me-2"></span>Assigning...
-                        </span>
-                    </button>
-                </div>
-            </div>
-            {% endif %}
+  {# ── Page Header ── #}
+  <div class="complaint-header d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      {% if user.is_authority %}
+        <a href="{% url 'complaints:authority_dashboard' %}" class="btn-back">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      {% elif user.is_staff_member %}
+        <a href="{% url 'staff:my_assignments' %}" class="btn-back">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      {% else %}
+        <a href="{% url 'complaints:my_complaints' %}" class="btn-back">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      {% endif %}
+      <div>
+        <div class="complaint-id">{{ complaint.complaint_id }}</div>
+        <div class="mt-1">
+          {% if complaint.status == 'pending' %}
+            <span class="status-pill s-pending"><i class="bi bi-clock"></i> Pending</span>
+          {% elif complaint.status == 'assigned' %}
+            <span class="status-pill s-assigned"><i class="bi bi-person-check"></i> Assigned</span>
+          {% elif complaint.status == 'in-progress' %}
+            <span class="status-pill s-in-progress"><i class="bi bi-arrow-repeat"></i> In Progress</span>
+          {% elif complaint.status == 'resolved' %}
+            <span class="status-pill s-resolved"><i class="bi bi-check-circle"></i> Resolved</span>
+          {% elif complaint.status == 'closed' %}
+            <span class="status-pill s-closed"><i class="bi bi-archive"></i> Closed</span>
+          {% endif %}
         </div>
+      </div>
     </div>
+    <div class="submitted-date text-sm-end">
+      <div class="opacity-75" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;">Submitted</div>
+      <div style="font-size:.9rem;font-weight:600;">{{ complaint.created_at|date:"M d, Y" }}</div>
+      <div style="font-size:.8rem;opacity:.8;">{{ complaint.created_at|date:"H:i" }}</div>
+    </div>
+  </div>
+
+  {# ── Two-column layout ── #}
+  <div class="row g-4">
+
+    {# ════ MAIN COLUMN ════ #}
+    <div class="col-lg-8">
+
+      {# ── Status Timeline ── #}
+      <div class="detail-card">
+        <div class="card-body-custom">
+          {% with s=complaint.status %}
+          <div class="timeline-stepper">
+
+            {# Submitted #}
+            <div class="timeline-step">
+              <div class="step-circle done"><i class="bi bi-send-check"></i></div>
+              <div class="step-label done">Submitted</div>
+            </div>
+
+            {# Assigned #}
+            <div class="timeline-step">
+              {% if s == 'assigned' %}
+                <div class="step-circle current"><i class="bi bi-person-check"></i></div>
+                <div class="step-label current">Assigned</div>
+              {% elif s == 'in-progress' or s == 'resolved' or s == 'closed' %}
+                <div class="step-circle done"><i class="bi bi-person-check"></i></div>
+                <div class="step-label done">Assigned</div>
+              {% else %}
+                <div class="step-circle"><i class="bi bi-person-check"></i></div>
+                <div class="step-label">Assigned</div>
+              {% endif %}
+            </div>
+
+            {# In Progress #}
+            <div class="timeline-step">
+              {% if s == 'in-progress' %}
+                <div class="step-circle current"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="step-label current">In Progress</div>
+              {% elif s == 'resolved' or s == 'closed' %}
+                <div class="step-circle done"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="step-label done">In Progress</div>
+              {% else %}
+                <div class="step-circle"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="step-label">In Progress</div>
+              {% endif %}
+            </div>
+
+            {# Resolved #}
+            <div class="timeline-step">
+              {% if s == 'resolved' %}
+                <div class="step-circle current"><i class="bi bi-check-circle"></i></div>
+                <div class="step-label current">Resolved</div>
+              {% elif s == 'closed' %}
+                <div class="step-circle done"><i class="bi bi-check-circle"></i></div>
+                <div class="step-label done">Resolved</div>
+              {% else %}
+                <div class="step-circle"><i class="bi bi-check-circle"></i></div>
+                <div class="step-label">Resolved</div>
+              {% endif %}
+            </div>
+
+            {# Closed #}
+            <div class="timeline-step">
+              {% if s == 'closed' %}
+                <div class="step-circle done"><i class="bi bi-archive"></i></div>
+                <div class="step-label done">Closed</div>
+              {% else %}
+                <div class="step-circle"><i class="bi bi-archive"></i></div>
+                <div class="step-label">Closed</div>
+              {% endif %}
+            </div>
+
+          </div>
+          {% endwith %}
+        </div>
+      </div>
+
+      {# ── Description ── #}
+      <div class="detail-card">
+        <div class="card-header-custom">
+          <i class="bi bi-file-text"></i> Description
+        </div>
+        <div class="card-body-custom">
+          <p class="mb-0" style="line-height:1.7;color:#374151;">{{ complaint.description }}</p>
+        </div>
+      </div>
+
+      {# ── Location ── #}
+      <div class="detail-card">
+        <div class="card-header-custom">
+          <i class="bi bi-geo-alt"></i> Location
+        </div>
+        <div class="card-body-custom">
+          <div class="d-flex align-items-start gap-2">
+            <i class="bi bi-pin-map-fill text-success mt-1" style="flex-shrink:0;"></i>
+            <div>
+              <div style="font-weight:500;color:#212529;">{{ complaint.address|default:"Address not available" }}</div>
+              <div class="text-muted mt-1" style="font-size:.8rem;font-family:'Courier New',monospace;">
+                {{ complaint.latitude }}, {{ complaint.longitude }}
+              </div>
+            </div>
+          </div>
+          <div id="complaint-map"></div>
+        </div>
+      </div>
+
+      {# ── Photos ── #}
+      {% if photos %}
+      <div class="detail-card">
+        <div class="card-header-custom">
+          <i class="bi bi-images"></i> Photos
+        </div>
+        <div class="card-body-custom">
+
+          {# Before photos #}
+          {% with has_before=False %}
+          {% for photo in photos %}{% if photo.photo_type == 'before' %}{% with has_before=True %}{% endwith %}{% endif %}{% endfor %}
+          {% endwith %}
+
+          <div class="mb-4">
+            <div class="photo-section-label"><i class="bi bi-camera"></i> Before</div>
+            <div class="row g-2">
+              {% for photo in photos %}
+              {% if photo.photo_type == 'before' %}
+              <div class="col-4 col-md-4">
+                <div class="photo-thumb-wrap" onclick="openLightbox('{{ photo.photo.url }}', 'Before')">
+                  <img src="{{ photo.photo.url }}" alt="Before photo" loading="lazy">
+                  <span class="photo-type-badge bg-secondary text-white">Before</span>
+                  <div class="photo-overlay"><i class="bi bi-zoom-in"></i></div>
+                </div>
+              </div>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+
+          {# After photos — only if resolved or closed #}
+          {% if complaint.status == 'resolved' or complaint.status == 'closed' %}
+          <div>
+            <div class="photo-section-label"><i class="bi bi-camera-fill"></i> After</div>
+            <div class="row g-2">
+              {% for photo in photos %}
+              {% if photo.photo_type == 'after' %}
+              <div class="col-4 col-md-4">
+                <div class="photo-thumb-wrap" onclick="openLightbox('{{ photo.photo.url }}', 'After')">
+                  <img src="{{ photo.photo.url }}" alt="After photo" loading="lazy">
+                  <span class="photo-type-badge bg-success text-white">After</span>
+                  <div class="photo-overlay"><i class="bi bi-zoom-in"></i></div>
+                </div>
+              </div>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {# ════ END MAIN COLUMN ════ #}
+
+    {# ════ SIDEBAR ════ #}
+    <div class="col-lg-4">
+
+      {# ── Details card ── #}
+      <div class="detail-card">
+        <div class="card-header-custom">
+          <i class="bi bi-info-circle"></i> Details
+        </div>
+        <div class="card-body-custom">
+
+          <div class="detail-row">
+            <span class="label">Submitted</span>
+            <span class="value">{{ complaint.created_at|date:"M d, Y H:i" }}</span>
+          </div>
+
+          <div class="detail-row">
+            <span class="label">Status</span>
+            <span class="value">
+              {% if complaint.status == 'pending' %}
+                <span class="status-pill s-pending" style="font-size:.72rem;">Pending</span>
+              {% elif complaint.status == 'assigned' %}
+                <span class="status-pill s-assigned" style="font-size:.72rem;">Assigned</span>
+              {% elif complaint.status == 'in-progress' %}
+                <span class="status-pill s-in-progress" style="font-size:.72rem;">In Progress</span>
+              {% elif complaint.status == 'resolved' %}
+                <span class="status-pill s-resolved" style="font-size:.72rem;">Resolved</span>
+              {% elif complaint.status == 'closed' %}
+                <span class="status-pill s-closed" style="font-size:.72rem;">Closed</span>
+              {% endif %}
+            </span>
+          </div>
+
+          {% if complaint.assigned_at %}
+          <div class="detail-row">
+            <span class="label">Assigned</span>
+            <span class="value">{{ complaint.assigned_at|date:"M d, Y H:i" }}</span>
+          </div>
+          {% endif %}
+
+          {% if complaint.resolved_at %}
+          <div class="detail-row">
+            <span class="label">Resolved</span>
+            <span class="value">{{ complaint.resolved_at|date:"M d, Y H:i" }}</span>
+          </div>
+          {% endif %}
+
+          {% if complaint.response_time %}
+          <div class="detail-row">
+            <span class="label">Response time</span>
+            <span class="value" id="response-time-display" data-duration="{{ complaint.response_time }}">
+              {{ complaint.response_time }}
+            </span>
+          </div>
+          {% endif %}
+
+          <div class="detail-row">
+            <span class="label">Reported by</span>
+            <span class="value" style="font-size:.8rem;">{{ complaint.citizen.email }}</span>
+          </div>
+
+        </div>
+      </div>
+
+      {# ── Assigned staff card ── #}
+      {% if complaint.assigned_staff %}
+      <div class="detail-card">
+        <div class="card-header-custom">
+          <i class="bi bi-person-badge"></i> Assigned Staff
+        </div>
+        <div class="card-body-custom">
+          <div class="d-flex align-items-center gap-3">
+            <div class="staff-avatar">
+              <i class="bi bi-person-fill"></i>
+            </div>
+            <div class="flex-grow-1">
+              <div style="font-weight:600;font-size:.95rem;">{{ complaint.assigned_staff.name }}</div>
+              {% if complaint.assigned_staff.phone %}
+              <div class="text-muted mt-1" style="font-size:.82rem;">
+                <i class="bi bi-telephone"></i> {{ complaint.assigned_staff.phone }}
+              </div>
+              {% endif %}
+            </div>
+            <span class="badge bg-success" style="font-size:.7rem;">Assigned</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {# ── Assign staff card (authority only, pending/assigned) ── #}
+      {% if user.is_authority %}
+      {% if complaint.status == 'pending' or complaint.status == 'assigned' %}
+      <div class="detail-card assign-card">
+        <div class="card-header-custom">
+          <i class="bi bi-person-plus"></i> Assign Staff
+        </div>
+        <div class="card-body-custom">
+          <div id="assignmentMessage" class="alert d-none mb-3" role="alert"></div>
+
+          <label for="staffSelect" class="form-label" style="font-size:.85rem;font-weight:600;">Select Staff Member</label>
+          <select class="form-select form-select-sm" id="staffSelect">
+            <option value="">Loading staff…</option>
+          </select>
+
+          <div class="staff-info-box" id="staffInfoBox">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <i class="bi bi-person-circle text-success"></i>
+              <strong id="staffInfoName"></strong>
+            </div>
+            <div class="d-flex gap-3">
+              <span><i class="bi bi-circle-fill me-1" id="staffDutyDot" style="font-size:.5rem;"></i><span id="staffInfoDuty"></span></span>
+              <span><i class="bi bi-clipboard-check me-1"></i><span id="staffInfoCount"></span> active</span>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-success btn-sm w-100 mt-3" id="assignBtn" disabled>
+            <span id="assignBtnText"><i class="bi bi-person-check me-1"></i>Assign Staff</span>
+            <span id="assignBtnSpinner" class="d-none">
+              <span class="spinner-border spinner-border-sm me-1"></span>Assigning…
+            </span>
+          </button>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+
+    </div>
+    {# ════ END SIDEBAR ════ #}
+
+  </div>
 </div>
 
+{# ── Lightbox Modal ── #}
+<div class="modal fade" id="photoModal" tabindex="-1" aria-label="Photo lightbox" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark border-0">
+      <div class="modal-header border-0 pb-0">
+        <span class="text-white fw-semibold" id="photoModalLabel" style="font-size:.85rem;"></span>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-2">
+        <img id="lightboxImg" src="" alt="Full size photo" class="img-fluid rounded" style="max-height:80vh;object-fit:contain;">
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-{% if user.is_authority and complaint.status in 'pending,assigned' %}
-// Load staff members
-document.addEventListener('DOMContentLoaded', function() {
-    const staffSelect = document.getElementById('staffSelect');
-    const staffInfo = document.getElementById('staffInfo');
-    const assignBtn = document.getElementById('assignBtn');
-    const assignmentMessage = document.getElementById('assignmentMessage');
-    
-    // Fetch staff list
-    fetch('/api/staff/list/')
-        .then(response => response.json())
-        .then(data => {
-            staffSelect.innerHTML = '<option value="">-- Select Staff Member --</option>';
-            
-            if (data.results && data.results.length > 0) {
-                data.results.forEach(staff => {
-                    const option = document.createElement('option');
-                    option.value = staff.staff_id;
-                    option.textContent = `${staff.name} (${staff.staff_id})`;
-                    option.dataset.activeCount = staff.active_complaints_count;
-                    option.dataset.canAccept = staff.can_accept_assignment;
-                    option.dataset.dutyStatus = staff.duty_status_display;
-                    
-                    // Disable if can't accept assignment
-                    if (!staff.can_accept_assignment) {
-                        option.disabled = true;
-                        option.textContent += ' - At capacity';
-                    }
-                    
-                    staffSelect.appendChild(option);
-                });
-            } else {
-                staffSelect.innerHTML = '<option value="">No staff members available</option>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading staff:', error);
-            staffSelect.innerHTML = '<option value="">Error loading staff</option>';
-        });
-    
-    // Show staff info on selection
-    staffSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        
-        if (this.value) {
-            const activeCount = selectedOption.dataset.activeCount;
-            const dutyStatus = selectedOption.dataset.dutyStatus;
-            staffInfo.innerHTML = `
-                <i class="bi bi-info-circle"></i> 
-                Status: ${dutyStatus} | 
-                Active complaints: ${activeCount}/10
-            `;
-            assignBtn.disabled = false;
-        } else {
-            staffInfo.innerHTML = '';
-            assignBtn.disabled = true;
-        }
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ── Leaflet map ──────────────────────────────────────────────
+  const lat = parseFloat('{{ complaint.latitude }}');
+  const lng = parseFloat('{{ complaint.longitude }}');
+
+  if (!isNaN(lat) && !isNaN(lng)) {
+    const map = L.map('complaint-map', { zoomControl: true, scrollWheelZoom: false }).setView([lat, lng], 16);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+      maxZoom: 19
+    }).addTo(map);
+
+    const greenIcon = L.divIcon({
+      className: '',
+      html: '<div style="background:#198754;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>',
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
     });
-    
-    // Handle assignment
-    assignBtn.addEventListener('click', function() {
-        const staffId = staffSelect.value;
-        
-        if (!staffId) {
-            return;
+    L.marker([lat, lng], { icon: greenIcon })
+      .addTo(map)
+      .bindPopup('<strong>{{ complaint.complaint_id }}</strong><br>{{ complaint.address|default:"Complaint location"|escapejs }}')
+      .openPopup();
+  }
+
+  // ── Response time human-readable ────────────────────────────
+  const rtEl = document.getElementById('response-time-display');
+  if (rtEl) {
+    // Django DurationField renders as "D days, H:MM:SS" or "H:MM:SS"
+    const raw = rtEl.dataset.duration || '';
+    let totalSecs = 0;
+    const dayMatch = raw.match(/(\d+)\s+day/);
+    const timeMatch = raw.match(/(\d+):(\d+):(\d+)/);
+    if (dayMatch) totalSecs += parseInt(dayMatch[1]) * 86400;
+    if (timeMatch) {
+      totalSecs += parseInt(timeMatch[1]) * 3600;
+      totalSecs += parseInt(timeMatch[2]) * 60;
+      totalSecs += parseInt(timeMatch[3]);
+    }
+    if (totalSecs > 0) {
+      const h = Math.floor(totalSecs / 3600);
+      const m = Math.floor((totalSecs % 3600) / 60);
+      const parts = [];
+      if (h > 0) parts.push(h + ' hour' + (h !== 1 ? 's' : ''));
+      if (m > 0) parts.push(m + ' minute' + (m !== 1 ? 's' : ''));
+      if (parts.length === 0) parts.push('< 1 minute');
+      rtEl.textContent = parts.join(' ');
+    }
+  }
+
+  // ── Staff assignment (authority only) ───────────────────────
+  const staffSelect = document.getElementById('staffSelect');
+  if (!staffSelect) return;
+
+  const assignBtn       = document.getElementById('assignBtn');
+  const assignMsg       = document.getElementById('assignmentMessage');
+  const staffInfoBox    = document.getElementById('staffInfoBox');
+  const staffInfoName   = document.getElementById('staffInfoName');
+  const staffInfoDuty   = document.getElementById('staffInfoDuty');
+  const staffInfoCount  = document.getElementById('staffInfoCount');
+  const staffDutyDot    = document.getElementById('staffDutyDot');
+  const assignBtnText   = document.getElementById('assignBtnText');
+  const assignBtnSpinner = document.getElementById('assignBtnSpinner');
+
+  // Load staff list
+  fetch('/api/staff/list/')
+    .then(r => r.json())
+    .then(data => {
+      const list = data.results || [];
+      staffSelect.innerHTML = '<option value="">— Select a staff member —</option>';
+      if (list.length === 0) {
+        staffSelect.innerHTML = '<option value="">No staff available</option>';
+        return;
+      }
+      list.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.staff_id;
+        opt.textContent = s.name + ' (' + s.staff_id + ')';
+        opt.dataset.name        = s.name;
+        opt.dataset.activeCount = s.active_complaints_count;
+        opt.dataset.canAccept   = s.can_accept_assignment;
+        opt.dataset.dutyStatus  = s.duty_status_display;
+        if (!s.can_accept_assignment) {
+          opt.disabled = true;
+          opt.textContent += ' — At capacity';
         }
-        
-        // Disable button and show loading
-        assignBtn.disabled = true;
-        document.getElementById('assignBtnText').classList.add('d-none');
-        document.getElementById('assignBtnSpinner').classList.remove('d-none');
-        assignmentMessage.classList.add('d-none');
-        
-        // Send assignment request
-        fetch('/api/complaints/{{ complaint.complaint_id }}/assign/', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({ staff_id: staffId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.message) {
-                // Success
-                assignmentMessage.className = 'alert alert-success';
-                assignmentMessage.textContent = data.message;
-                assignmentMessage.classList.remove('d-none');
-                
-                // Reload page after 2 seconds
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2000);
-            } else if (data.error) {
-                // Error
-                assignmentMessage.className = 'alert alert-danger';
-                assignmentMessage.textContent = data.error;
-                assignmentMessage.classList.remove('d-none');
-                
-                // Re-enable button
-                assignBtn.disabled = false;
-                document.getElementById('assignBtnText').classList.remove('d-none');
-                document.getElementById('assignBtnSpinner').classList.add('d-none');
-            }
-        })
-        .catch(error => {
-            console.error('Error assigning staff:', error);
-            assignmentMessage.className = 'alert alert-danger';
-            assignmentMessage.textContent = 'An error occurred while assigning staff. Please try again.';
-            assignmentMessage.classList.remove('d-none');
-            
-            // Re-enable button
-            assignBtn.disabled = false;
-            document.getElementById('assignBtnText').classList.remove('d-none');
-            document.getElementById('assignBtnSpinner').classList.add('d-none');
-        });
+        staffSelect.appendChild(opt);
+      });
+    })
+    .catch(() => {
+      staffSelect.innerHTML = '<option value="">Error loading staff</option>';
     });
+
+  // Show staff info on change
+  staffSelect.addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    if (this.value) {
+      staffInfoName.textContent  = opt.dataset.name;
+      staffInfoDuty.textContent  = opt.dataset.dutyStatus;
+      staffInfoCount.textContent = opt.dataset.activeCount + '/10';
+      const onDuty = opt.dataset.dutyStatus && opt.dataset.dutyStatus.toLowerCase().includes('on duty');
+      staffDutyDot.style.color = onDuty ? '#198754' : '#adb5bd';
+      staffInfoBox.classList.add('visible');
+      assignBtn.disabled = false;
+    } else {
+      staffInfoBox.classList.remove('visible');
+      assignBtn.disabled = true;
+    }
+  });
+
+  // Assign staff
+  assignBtn.addEventListener('click', function () {
+    const staffId = staffSelect.value;
+    if (!staffId) return;
+
+    assignBtn.disabled = true;
+    assignBtnText.classList.add('d-none');
+    assignBtnSpinner.classList.remove('d-none');
+    assignMsg.classList.add('d-none');
+
+    fetch('/api/complaints/{{ complaint.complaint_id }}/assign/', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({ staff_id: staffId })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.message) {
+        assignMsg.className = 'alert alert-success mb-3';
+        assignMsg.innerHTML = '<i class="bi bi-check-circle me-2"></i>' + data.message;
+        assignMsg.classList.remove('d-none');
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        const errText = data.error || 'Assignment failed. Please try again.';
+        assignMsg.className = 'alert alert-danger mb-3';
+        assignMsg.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>' + errText;
+        assignMsg.classList.remove('d-none');
+        resetAssignBtn();
+      }
+    })
+    .catch(() => {
+      assignMsg.className = 'alert alert-danger mb-3';
+      assignMsg.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>Network error. Please try again.';
+      assignMsg.classList.remove('d-none');
+      resetAssignBtn();
+    });
+  });
+
+  function resetAssignBtn() {
+    assignBtn.disabled = false;
+    assignBtnText.classList.remove('d-none');
+    assignBtnSpinner.classList.add('d-none');
+  }
+
 });
-{% endif %}
+
+// ── Lightbox ────────────────────────────────────────────────────
+function openLightbox(url, label) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('photoModalLabel').textContent = label + ' Photo';
+  new bootstrap.Modal(document.getElementById('photoModal')).show();
+}
 </script>
+{% endblock %}
 {% endblock %}

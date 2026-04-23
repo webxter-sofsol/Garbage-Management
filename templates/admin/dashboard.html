@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard — GCMS{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    padding: 40px 0 32px;
+    color: white;
+  }
+  .stat-card {
+    border: none;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    padding: 24px 20px;
+    text-align: center;
+    height: 100%;
+  }
+  .stat-card .stat-icon {
+    font-size: 2rem;
+    margin-bottom: 8px;
+  }
+  .stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #0f5132;
+  }
+  .stat-card .stat-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 4px;
+  }
+  .quick-link-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .quick-link-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+    color: inherit;
+  }
+  .status-pill {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="page-header">
+  <div class="container">
+    <div class="d-flex align-items-center gap-3">
+      <div style="background:rgba(255,255,255,0.15);border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
+        <i class="bi bi-speedometer2 text-white fs-4"></i>
+      </div>
+      <div>
+        <h2 class="fw-bold mb-0">Admin Dashboard</h2>
+        <p class="mb-0 opacity-75 small">System overview and key metrics</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container py-4">
+
+  <!-- Stats Row -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="stat-card">
+        <div class="stat-icon text-primary"><i class="bi bi-people-fill"></i></div>
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Total Users</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="stat-card">
+        <div class="stat-icon text-success"><i class="bi bi-person-badge-fill"></i></div>
+        <div class="stat-value">{{ total_staff }}</div>
+        <div class="stat-label">Total Staff</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="stat-card">
+        <div class="stat-icon text-warning"><i class="bi bi-clipboard-data-fill"></i></div>
+        <div class="stat-value">{{ total_complaints }}</div>
+        <div class="stat-label">Total Complaints</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="stat-card">
+        <div class="stat-icon text-danger"><i class="bi bi-hourglass-split"></i></div>
+        <div class="stat-value">{{ pending_complaints }}</div>
+        <div class="stat-label">Pending</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="stat-card">
+        <div class="stat-icon" style="color:#198754;"><i class="bi bi-check-circle-fill"></i></div>
+        <div class="stat-value">{{ resolved_complaints }}</div>
+        <div class="stat-label">Resolved</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="stat-card">
+        <div class="stat-icon" style="color:#0dcaf0;"><i class="bi bi-person-check-fill"></i></div>
+        <div class="stat-value">{{ staff_on_duty }}</div>
+        <div class="stat-label">Staff On Duty</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Recent Complaints -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm" style="border-radius:14px;">
+        <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+          <h5 class="fw-bold mb-0"><i class="bi bi-clock-history text-success me-2"></i>Recent Complaints</h5>
+        </div>
+        <div class="card-body px-4 pb-4">
+          {% if recent_complaints %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="fw-semibold small">ID</th>
+                  <th class="fw-semibold small">Description</th>
+                  <th class="fw-semibold small">Status</th>
+                  <th class="fw-semibold small">Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for complaint in recent_complaints %}
+                <tr>
+                  <td><code class="small">{{ complaint.complaint_id }}</code></td>
+                  <td class="small text-muted" style="max-width:200px;">
+                    {{ complaint.description|truncatechars:60 }}
+                  </td>
+                  <td>
+                    {% if complaint.status == 'pending' %}
+                      <span class="status-pill bg-warning text-dark">Pending</span>
+                    {% elif complaint.status == 'assigned' %}
+                      <span class="status-pill bg-info text-dark">Assigned</span>
+                    {% elif complaint.status == 'in-progress' %}
+                      <span class="status-pill bg-primary text-white">In Progress</span>
+                    {% elif complaint.status == 'resolved' %}
+                      <span class="status-pill bg-success text-white">Resolved</span>
+                    {% else %}
+                      <span class="status-pill bg-secondary text-white">{{ complaint.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="small text-muted">{{ complaint.created_at|date:"M d, Y" }}</td>
+                  <td>
+                    <a href="{% url 'complaints:detail' complaint.complaint_id %}" class="btn btn-sm btn-outline-success">
+                      View
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+            No complaints yet.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm" style="border-radius:14px;">
+        <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
+          <h5 class="fw-bold mb-0"><i class="bi bi-lightning-fill text-warning me-2"></i>Quick Links</h5>
+        </div>
+        <div class="card-body px-4 pb-4 d-flex flex-column gap-3">
+          <a href="{% url 'staff:staff_list' %}" class="quick-link-card" style="background:#f0fdf4;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-people-fill text-success fs-4"></i>
+              <div>
+                <div class="fw-semibold small">Staff Management</div>
+                <div class="text-muted" style="font-size:0.78rem;">Add and manage staff members</div>
+              </div>
+            </div>
+          </a>
+          <a href="{% url 'admin_users' %}" class="quick-link-card" style="background:#eff6ff;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-person-lines-fill text-primary fs-4"></i>
+              <div>
+                <div class="fw-semibold small">User Management</div>
+                <div class="text-muted" style="font-size:0.78rem;">View and toggle user accounts</div>
+              </div>
+            </div>
+          </a>
+          <a href="{% url 'complaints:authority_dashboard' %}" class="quick-link-card" style="background:#fff7ed;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-clipboard-data-fill text-warning fs-4"></i>
+              <div>
+                <div class="fw-semibold small">Complaints Dashboard</div>
+                <div class="text-muted" style="font-size:0.78rem;">Assign and manage complaints</div>
+              </div>
+            </div>
+          </a>
+          <a href="{% url 'staff:tracking_map' %}" class="quick-link-card" style="background:#f0f9ff;">
+            <div class="d-flex align-items-center gap-3">
+              <i class="bi bi-geo-alt-fill fs-4" style="color:#0dcaf0;"></i>
+              <div>
+                <div class="fw-semibold small">Tracking Map</div>
+                <div class="text-muted" style="font-size:0.78rem;">Live staff location tracking</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

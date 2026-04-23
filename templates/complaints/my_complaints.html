@@ -1,43 +1,302 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}My Complaints - GCMS{% endblock %}
+{% block title %}My Complaints — GCMS{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Page Header */
+  .page-header {
+    background: linear-gradient(135deg, #0f5132 0%, #198754 100%);
+    border-radius: 16px;
+    color: #fff;
+    padding: 2rem 2rem;
+  }
+  .page-header .subtitle {
+    opacity: 0.82;
+    font-size: 0.95rem;
+  }
+
+  /* Complaint Card */
+  .complaint-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .complaint-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    color: inherit;
+    text-decoration: none;
+  }
+  .complaint-card .card-inner {
+    display: flex;
+    min-height: 100%;
+  }
+
+  /* Left status bar */
+  .status-bar {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 14px 0 0 14px;
+  }
+  .status-bar.pending    { background: #ffc107; }
+  .status-bar.assigned   { background: #0dcaf0; }
+  .status-bar.in-progress { background: #198754; }
+  .status-bar.resolved   { background: #0f5132; }
+  .status-bar.closed     { background: #6c757d; }
+
+  /* Status pill badges */
+  .badge-status {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.35em 0.75em;
+    border-radius: 50px;
+    letter-spacing: 0.02em;
+  }
+  .badge-pending    { background: #fff3cd; color: #856404; }
+  .badge-assigned   { background: #cff4fc; color: #055160; }
+  .badge-in-progress { background: #d1e7dd; color: #0a3622; }
+  .badge-resolved   { background: #0f5132; color: #fff; }
+  .badge-closed     { background: #e2e3e5; color: #41464b; }
+
+  /* Complaint ID badge */
+  .complaint-id-badge {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.78rem;
+    background: #f0fdf4;
+    color: #0f5132;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: 0.2em 0.55em;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  /* Filter buttons */
+  .filter-btn {
+    border-radius: 50px;
+    padding: 0.4rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1.5px solid #dee2e6;
+    background: #fff;
+    color: #495057;
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .filter-btn:hover {
+    border-color: #198754;
+    color: #198754;
+  }
+  .filter-btn.active {
+    background: #198754;
+    border-color: #198754;
+    color: #fff;
+  }
+
+  /* Description */
+  .complaint-desc {
+    font-size: 0.92rem;
+    color: #374151;
+    line-height: 1.5;
+  }
+
+  /* Meta row */
+  .meta-row {
+    font-size: 0.8rem;
+    color: #6c757d;
+    gap: 1rem;
+  }
+  .meta-row .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+  }
+  .empty-state .icon-circle {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: #d1e7dd;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+  }
+  .empty-state .icon-circle i {
+    font-size: 2.4rem;
+    color: #198754;
+  }
+  .empty-state h5 {
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 0.4rem;
+  }
+  .empty-state p {
+    color: #6c757d;
+    font-size: 0.93rem;
+    margin-bottom: 1.5rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <h4 class="mb-4"><i class="bi bi-list-check text-success"></i> My Complaints</h4>
-            
-            {% if complaints %}
-                {% for complaint in complaints %}
-                <a href="{% url 'complaints:detail' complaint.complaint_id %}" class="text-decoration-none">
-                    <div class="card mb-3 complaint-card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="mb-0">{{ complaint.complaint_id }}</h6>
-                                <span class="badge status-{{ complaint.status }}">
-                                    {{ complaint.get_status_display }}
-                                </span>
-                            </div>
-                            <p class="card-text text-muted small mb-2">
-                                {{ complaint.description|truncatewords:15 }}
-                            </p>
-                            <p class="card-text small text-muted mb-0">
-                                <i class="bi bi-clock"></i> {{ complaint.created_at|timesince }} ago
-                            </p>
-                        </div>
-                    </div>
-                </a>
-                {% endfor %}
-            {% else %}
-                <div class="text-center py-5">
-                    <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
-                    <p class="text-muted mt-3">No complaints yet</p>
-                    <a href="{% url 'complaints:create' %}" class="btn btn-success">Report an Issue</a>
-                </div>
-            {% endif %}
-        </div>
+<div class="container py-4">
+
+  <!-- Page Header -->
+  <div class="page-header mb-4 d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+    <div>
+      <h2 class="fw-bold mb-1">
+        <i class="bi bi-clipboard2-pulse me-2"></i>My Complaints
+      </h2>
+      <p class="subtitle mb-0">Track and manage all your reported issues</p>
     </div>
+    <a href="{% url 'complaints:create' %}" class="btn btn-light fw-semibold px-4 py-2 rounded-pill shadow-sm text-success">
+      <i class="bi bi-plus-circle me-1"></i> New Complaint
+    </a>
+  </div>
+
+  {% if complaints %}
+
+  <!-- Filter Buttons -->
+  <div class="d-flex flex-wrap gap-2 mb-4">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="pending">Pending</button>
+    <button class="filter-btn" data-filter="assigned">Assigned</button>
+    <button class="filter-btn" data-filter="in-progress">In Progress</button>
+    <button class="filter-btn" data-filter="resolved">Resolved</button>
+    <button class="filter-btn" data-filter="closed">Closed</button>
+  </div>
+
+  <!-- Complaint Cards -->
+  <div class="row g-3" id="complaints-container">
+    {% for complaint in complaints %}
+    {% with photo_count=complaint.photos.count %}
+    <div class="col-12 complaint-item" data-status="{{ complaint.status }}">
+      <a href="{% url 'complaints:detail' complaint.complaint_id %}" class="complaint-card">
+        <div class="card-inner">
+          <!-- Left status bar -->
+          <div class="status-bar {{ complaint.status }}"></div>
+
+          <!-- Card body -->
+          <div class="flex-grow-1 p-3">
+            <!-- Top row: ID + status badge -->
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+              <span class="complaint-id-badge">{{ complaint.complaint_id }}</span>
+              <span class="badge-status badge-{{ complaint.status }} flex-shrink-0">
+                {{ complaint.get_status_display }}
+              </span>
+            </div>
+
+            <!-- Description -->
+            <p class="complaint-desc mb-2">
+              {{ complaint.description|truncatewords:20 }}
+            </p>
+
+            <!-- Meta row -->
+            <div class="meta-row d-flex flex-wrap">
+              <span class="meta-item">
+                <i class="bi bi-clock"></i>
+                {% now "U" as now_ts %}
+                {{ complaint.created_at|timesince }} ago
+              </span>
+              {% if complaint.address %}
+              <span class="meta-item">
+                <i class="bi bi-geo-alt"></i>
+                {{ complaint.address|truncatechars:40 }}
+              </span>
+              {% endif %}
+              {% if photo_count > 0 %}
+              <span class="meta-item">
+                <i class="bi bi-images"></i>
+                {{ photo_count }} photo{{ photo_count|pluralize }}
+              </span>
+              {% endif %}
+            </div>
+
+            <!-- Assigned staff -->
+            {% if complaint.assigned_staff %}
+            <div class="mt-2">
+              <small class="text-muted">
+                <i class="bi bi-person-check me-1 text-success"></i>
+                Assigned to: <span class="fw-semibold text-dark">{{ complaint.assigned_staff.name }}</span>
+              </small>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+
+  <!-- No results after filter -->
+  <div id="no-filter-results" class="empty-state d-none">
+    <div class="icon-circle">
+      <i class="bi bi-funnel"></i>
+    </div>
+    <h5>No complaints match this filter</h5>
+    <p>Try selecting a different status above.</p>
+  </div>
+
+  {% else %}
+
+  <!-- Empty State -->
+  <div class="empty-state">
+    <div class="icon-circle">
+      <i class="bi bi-clipboard2-x"></i>
+    </div>
+    <h5>No complaints yet</h5>
+    <p>You haven't reported any issues. Let us know if something needs attention.</p>
+    <a href="{% url 'complaints:create' %}" class="btn btn-success rounded-pill px-4 py-2 fw-semibold">
+      <i class="bi bi-plus-circle me-1"></i> Report an Issue
+    </a>
+  </div>
+
+  {% endif %}
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const items = document.querySelectorAll('.complaint-item');
+    const noResults = document.getElementById('no-filter-results');
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', function () {
+        // Toggle active class
+        filterBtns.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+
+        const filter = this.dataset.filter;
+        let visible = 0;
+
+        items.forEach(item => {
+          const match = filter === 'all' || item.dataset.status === filter;
+          item.style.display = match ? '' : 'none';
+          if (match) visible++;
+        });
+
+        if (noResults) {
+          noResults.classList.toggle('d-none', visible > 0);
+        }
+      });
+    });
+  })();
+</script>
 {% endblock %}
