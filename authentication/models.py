@@ -157,14 +157,17 @@ class OTP(models.Model):
     def create_otp(cls, email):
         """
         Create a new OTP for the given email.
-        Invalidates any previous unused OTPs for the same email.
+        Invalidates any previous unused OTPs for the same email atomically.
         """
-        # Invalidate previous unused OTPs
-        cls.objects.filter(email=email, is_used=False).update(is_used=True)
-        
-        # Create new OTP
-        code = cls.generate_code()
-        otp = cls.objects.create(email=email, code=code)
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Invalidate previous unused OTPs
+            cls.objects.filter(email=email, is_used=False).update(is_used=True)
+
+            # Create new OTP
+            code = cls.generate_code()
+            otp = cls.objects.create(email=email, code=code)
         return otp
     
     @classmethod
@@ -172,17 +175,28 @@ class OTP(models.Model):
         """
         Verify OTP for the given email and code.
         Returns the OTP object if valid, None otherwise.
+        Uses filter+first to safely handle duplicate OTP edge cases.
         """
         try:
-            otp = cls.objects.get(
+            # Use filter().order_by().first() to avoid MultipleObjectsReturned
+            # if duplicates somehow exist; picks the most recently created one
+            otp = cls.objects.filter(
                 email=email,
                 code=code,
                 is_used=False
-            )
+            ).order_by('-created_at').first()
+
+            if otp is None:
+                return None
+
             if otp.is_valid():
-                otp.is_used = True
-                otp.save()
+                # Mark all matching unused OTPs as used (clean up duplicates)
+                cls.objects.filter(
+                    email=email,
+                    code=code,
+                    is_used=False
+                ).update(is_used=True)
                 return otp
             return None
-        except cls.DoesNotExist:
+        except Exception:
             return None
