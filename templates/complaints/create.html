@@ -159,6 +159,34 @@
   .char-counter { font-size: .8rem; }
   .char-counter.valid   { color: #198754; }
   .char-counter.invalid { color: #dc3545; }
+
+  /* Location tabs */
+  .location-tabs {
+    display: flex;
+    gap: .5rem;
+  }
+  .loc-tab {
+    flex: 1;
+    padding: .55rem 1rem;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    font-size: .875rem;
+    font-weight: 500;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .loc-tab:hover {
+    border-color: #198754;
+    color: #198754;
+  }
+  .loc-tab.active {
+    border-color: #198754;
+    background: #f0faf4;
+    color: #0f5132;
+    font-weight: 600;
+  }
 </style>
 {% endblock %}
 
@@ -211,19 +239,66 @@
           <!-- ── Step 2 ── -->
           <div class="step-header">
             <span class="step-circle">2</span>
-            <h6>Location</h6>
+            <h6>Location <span class="text-danger">*</span></h6>
           </div>
 
-          <button type="button" id="getLocationBtn" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-2">
-            <span id="locationBtnIcon"><i class="bi bi-geo-alt-fill"></i></span>
-            <span id="locationBtnText">Use My Location</span>
-          </button>
+          <!-- Location method tabs -->
+          <div class="location-tabs mb-3">
+            <button type="button" class="loc-tab active" id="tabGps" onclick="switchLocTab('gps')">
+              <i class="bi bi-geo-alt-fill me-1"></i>Use My GPS
+            </button>
+            <button type="button" class="loc-tab" id="tabManual" onclick="switchLocTab('manual')">
+              <i class="bi bi-pencil-fill me-1"></i>Enter Manually
+            </button>
+          </div>
 
+          <!-- GPS panel -->
+          <div id="panelGps">
+            <button type="button" id="getLocationBtn" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-2">
+              <span id="locationBtnIcon"><i class="bi bi-geo-alt-fill"></i></span>
+              <span id="locationBtnText">Detect My Location</span>
+            </button>
+          </div>
+
+          <!-- Manual entry panel -->
+          <div id="panelManual" class="d-none">
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Full Address <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="text" id="manualAddress" class="form-control"
+                       placeholder="e.g. 12 MG Road, Sector 5, Mumbai 400001"
+                       autocomplete="street-address">
+                <button type="button" class="btn btn-outline-success" id="searchAddressBtn" title="Search">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+              <div class="form-text">Enter a full address and click Search to pin it on the map.</div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Latitude</label>
+                <input type="number" id="manualLat" class="form-control form-control-sm"
+                       placeholder="e.g. 19.076090" step="0.000001" min="-90" max="90">
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Longitude</label>
+                <input type="number" id="manualLng" class="form-control form-control-sm"
+                       placeholder="e.g. 72.877426" step="0.000001" min="-180" max="180">
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="pinManualBtn">
+              <i class="bi bi-pin-map me-1"></i>Pin These Coordinates
+            </button>
+          </div>
+
+          <!-- Shared feedback + map -->
           <div id="locationSuccess" class="location-success mt-3 d-none"></div>
           <div id="locationError"   class="location-error   mt-3 d-none"></div>
-
           <div id="mapWrapper" class="d-none">
             <div id="locationMap"></div>
+            <div class="form-text mt-1 text-center">
+              <i class="bi bi-hand-index me-1"></i>You can also click on the map to adjust the pin.
+            </div>
           </div>
 
           <hr class="step-divider">
@@ -304,7 +379,12 @@
 (function () {
   'use strict';
 
-  /* ── Leaflet map (lazy init) ── */
+  /* ── Hidden form inputs ── */
+  const latInput  = document.getElementById('latitude');
+  const lngInput  = document.getElementById('longitude');
+  const addrInput = document.getElementById('address');
+
+  /* ── Leaflet map ── */
   let map = null;
   let marker = null;
 
@@ -316,13 +396,34 @@
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>'
       }).addTo(map);
+      // Allow clicking map to reposition pin
+      map.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        setLocation(lat.toFixed(6), lng.toFixed(6));
+        const addr = await reverseGeocode(lat, lng);
+        setLocationSuccess(lat.toFixed(6), lng.toFixed(6), addr);
+      });
     } else {
       map.setView([lat, lng], 16);
     }
-    if (marker) { map.removeLayer(marker); }
-    marker = L.marker([lat, lng]).addTo(map);
-    // force resize after reveal
+    if (marker) map.removeLayer(marker);
+    marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+    marker.on('dragend', async (e) => {
+      const { lat, lng } = e.target.getLatLng();
+      setLocation(lat.toFixed(6), lng.toFixed(6));
+      const addr = await reverseGeocode(lat, lng);
+      setLocationSuccess(lat.toFixed(6), lng.toFixed(6), addr);
+    });
     setTimeout(() => map.invalidateSize(), 100);
+  }
+
+  function setLocation(lat, lng) {
+    latInput.value = lat;
+    lngInput.value = lng;
+    if (map && marker) {
+      marker.setLatLng([parseFloat(lat), parseFloat(lng)]);
+      map.setView([parseFloat(lat), parseFloat(lng)], 16);
+    }
   }
 
   /* ── Reverse geocoding ── */
@@ -339,13 +440,49 @@
     }
   }
 
-  /* ── Get location ── */
-  const getLocationBtn = document.getElementById('getLocationBtn');
+  /* ── Forward geocoding (address → coords) ── */
+  async function forwardGeocode(query) {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=1`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    const data = await res.json();
+    return data.length ? data[0] : null;
+  }
+
+  /* ── Shared success/error display ── */
   const locationSuccess = document.getElementById('locationSuccess');
   const locationError   = document.getElementById('locationError');
-  const latInput  = document.getElementById('latitude');
-  const lngInput  = document.getElementById('longitude');
-  const addrInput = document.getElementById('address');
+
+  function setLocationSuccess(lat, lng, addr) {
+    addrInput.value = addr;
+    locationSuccess.classList.remove('d-none');
+    locationSuccess.innerHTML =
+      `<i class="bi bi-check-circle-fill me-2"></i>
+       <strong>Location set</strong><br>
+       <span class="opacity-75">${addr}</span><br>
+       <small class="opacity-50">Lat: ${lat} &nbsp; Lng: ${lng}</small>`;
+    locationError.classList.add('d-none');
+    initMap(parseFloat(lat), parseFloat(lng));
+  }
+
+  function showLocationError(msg) {
+    locationError.classList.remove('d-none');
+    locationError.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+    locationSuccess.classList.add('d-none');
+  }
+
+  /* ── Tab switching ── */
+  window.switchLocTab = function(tab) {
+    document.getElementById('tabGps').classList.toggle('active', tab === 'gps');
+    document.getElementById('tabManual').classList.toggle('active', tab === 'manual');
+    document.getElementById('panelGps').classList.toggle('d-none', tab !== 'gps');
+    document.getElementById('panelManual').classList.toggle('d-none', tab !== 'manual');
+    locationError.classList.add('d-none');
+  };
+
+  /* ── GPS panel ── */
+  const getLocationBtn = document.getElementById('getLocationBtn');
 
   function setLocationLoading(loading) {
     const icon = document.getElementById('locationBtnIcon');
@@ -356,14 +493,15 @@
       getLocationBtn.disabled = true;
     } else {
       icon.innerHTML = '<i class="bi bi-geo-alt-fill"></i>';
-      text.textContent = 'Use My Location';
+      text.textContent = 'Detect My Location';
       getLocationBtn.disabled = false;
     }
   }
 
-  async function captureLocation() {
+  async function captureGPS() {
     if (!navigator.geolocation) {
-      showLocationError('Geolocation is not supported by your browser.');
+      showLocationError('Geolocation is not supported by your browser. Please enter location manually.');
+      switchLocTab('manual');
       return;
     }
     setLocationLoading(true);
@@ -374,23 +512,15 @@
       async (pos) => {
         const lat = pos.coords.latitude.toFixed(6);
         const lng = pos.coords.longitude.toFixed(6);
-        latInput.value  = lat;
-        lngInput.value  = lng;
+        setLocation(lat, lng);
         const addr = await reverseGeocode(lat, lng);
-        addrInput.value = addr;
-        locationSuccess.classList.remove('d-none');
-        locationSuccess.innerHTML =
-          `<i class="bi bi-check-circle-fill me-2"></i>
-           <strong>Location captured</strong><br>
-           <span class="opacity-75">${addr}</span><br>
-           <small class="opacity-50">Lat: ${lat} &nbsp; Lng: ${lng}</small>`;
-        initMap(parseFloat(lat), parseFloat(lng));
+        setLocationSuccess(lat, lng, addr);
         setLocationLoading(false);
       },
       (err) => {
-        let msg = 'Unable to retrieve your location.';
-        if (err.code === 1) msg = 'Location access denied. Please allow location permission and try again.';
-        if (err.code === 3) msg = 'Location request timed out. Please try again.';
+        let msg = 'Unable to detect location. Please enter it manually.';
+        if (err.code === 1) msg = 'Location access denied. Please allow permission or enter location manually.';
+        if (err.code === 3) msg = 'Location request timed out. Please try again or enter manually.';
         showLocationError(msg);
         setLocationLoading(false);
       },
@@ -398,17 +528,67 @@
     );
   }
 
-  function showLocationError(msg) {
-    locationError.classList.remove('d-none');
-    locationError.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${msg}`;
+  getLocationBtn.addEventListener('click', captureGPS);
+
+  /* ── Manual panel: address search ── */
+  const searchAddressBtn = document.getElementById('searchAddressBtn');
+  const manualAddress    = document.getElementById('manualAddress');
+
+  async function searchAddress() {
+    const query = manualAddress.value.trim();
+    if (!query) {
+      showLocationError('Please enter an address to search.');
+      return;
+    }
+    searchAddressBtn.disabled = true;
+    searchAddressBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    locationError.classList.add('d-none');
+
+    try {
+      const result = await forwardGeocode(query);
+      if (result) {
+        const lat = parseFloat(result.lat).toFixed(6);
+        const lng = parseFloat(result.lon).toFixed(6);
+        document.getElementById('manualLat').value = lat;
+        document.getElementById('manualLng').value = lng;
+        setLocation(lat, lng);
+        setLocationSuccess(lat, lng, result.display_name);
+      } else {
+        showLocationError('Address not found. Try a more specific address or enter coordinates directly.');
+      }
+    } catch {
+      showLocationError('Search failed. Please check your connection or enter coordinates manually.');
+    } finally {
+      searchAddressBtn.disabled = false;
+      searchAddressBtn.innerHTML = '<i class="bi bi-search"></i>';
+    }
   }
 
-  getLocationBtn.addEventListener('click', captureLocation);
+  searchAddressBtn.addEventListener('click', searchAddress);
+  manualAddress.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchAddress(); } });
 
-  // Auto-trigger on mobile
-  if (window.innerWidth <= 768) {
-    captureLocation();
-  }
+  /* ── Manual panel: pin coordinates ── */
+  document.getElementById('pinManualBtn').addEventListener('click', async () => {
+    const lat = document.getElementById('manualLat').value.trim();
+    const lng = document.getElementById('manualLng').value.trim();
+
+    if (!lat || !lng) {
+      showLocationError('Please enter both latitude and longitude.');
+      return;
+    }
+    const latF = parseFloat(lat), lngF = parseFloat(lng);
+    if (isNaN(latF) || latF < -90 || latF > 90) {
+      showLocationError('Latitude must be a number between -90 and 90.');
+      return;
+    }
+    if (isNaN(lngF) || lngF < -180 || lngF > 180) {
+      showLocationError('Longitude must be a number between -180 and 180.');
+      return;
+    }
+    setLocation(latF.toFixed(6), lngF.toFixed(6));
+    const addr = await reverseGeocode(latF, lngF);
+    setLocationSuccess(latF.toFixed(6), lngF.toFixed(6), addr);
+  });
 
   /* ── Character counter ── */
   const descTextarea = document.getElementById('description');
@@ -420,9 +600,8 @@
     charCounter.className = 'char-counter text-end mb-0 ' +
       (len >= 10 && len <= 500 ? 'valid' : 'invalid');
   }
-
   descTextarea.addEventListener('input', updateCounter);
-  updateCounter(); // init
+  updateCounter();
 
   /* ── Photo upload ── */
   const uploadZone  = document.getElementById('uploadZone');
@@ -432,50 +611,30 @@
   let selectedFiles = [];
 
   uploadZone.addEventListener('click', () => photoInput.click());
-
-  uploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadZone.classList.add('drag-over');
-  });
+  uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
   uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
   uploadZone.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadZone.classList.remove('drag-over');
     handleFiles(Array.from(e.dataTransfer.files));
   });
-
-  photoInput.addEventListener('change', () => {
-    handleFiles(Array.from(photoInput.files));
-    photoInput.value = '';
-  });
+  photoInput.addEventListener('change', () => { handleFiles(Array.from(photoInput.files)); photoInput.value = ''; });
 
   function handleFiles(newFiles) {
     photoError.classList.add('d-none');
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     for (const f of newFiles) {
-      if (!allowed.includes(f.type)) {
-        showPhotoError('Only JPEG, PNG, and WebP images are allowed.');
-        return;
-      }
-      if (f.size > 5 * 1024 * 1024) {
-        showPhotoError(`"${f.name}" exceeds the 5MB limit.`);
-        return;
-      }
+      if (!allowed.includes(f.type)) { showPhotoError('Only JPEG, PNG, and WebP images are allowed.'); return; }
+      if (f.size > 5 * 1024 * 1024) { showPhotoError(`"${f.name}" exceeds the 5MB limit.`); return; }
     }
     const combined = [...selectedFiles, ...newFiles];
-    if (combined.length > 3) {
-      showPhotoError('You can upload a maximum of 3 photos.');
-      return;
-    }
+    if (combined.length > 3) { showPhotoError('You can upload a maximum of 3 photos.'); return; }
     selectedFiles = combined;
     syncFileInput();
     renderPreviews();
   }
 
-  function showPhotoError(msg) {
-    photoError.textContent = msg;
-    photoError.classList.remove('d-none');
-  }
+  function showPhotoError(msg) { photoError.textContent = msg; photoError.classList.remove('d-none'); }
 
   function syncFileInput() {
     const dt = new DataTransfer();
@@ -495,24 +654,18 @@
           <button type="button" class="remove-btn" data-idx="${idx}" title="Remove">
             <i class="bi bi-x"></i>
           </button>`;
-        thumb.querySelector('.remove-btn').addEventListener('click', () => removePhoto(idx));
+        thumb.querySelector('.remove-btn').addEventListener('click', () => { selectedFiles.splice(idx, 1); syncFileInput(); renderPreviews(); });
         photoGrid.appendChild(thumb);
       };
       reader.readAsDataURL(file);
     });
   }
 
-  function removePhoto(idx) {
-    selectedFiles.splice(idx, 1);
-    syncFileInput();
-    renderPreviews();
-  }
-
-  /* ── Form validation & submit ── */
-  const form       = document.getElementById('complaintForm');
-  const submitBtn  = document.getElementById('submitBtn');
-  const submitIcon = document.getElementById('submitIcon');
-  const submitText = document.getElementById('submitText');
+  /* ── Form submit validation ── */
+  const form          = document.getElementById('complaintForm');
+  const submitBtn     = document.getElementById('submitBtn');
+  const submitIcon    = document.getElementById('submitIcon');
+  const submitText    = document.getElementById('submitText');
   const submitSpinner = document.getElementById('submitSpinner');
 
   form.addEventListener('submit', (e) => {
@@ -524,21 +677,21 @@
       e.preventDefault();
       descTextarea.focus();
       descTextarea.classList.add('is-invalid');
-      charCounter.classList.add('invalid');
       return;
     }
     descTextarea.classList.remove('is-invalid');
 
     if (!lat || !lng) {
       e.preventDefault();
-      locationError.classList.remove('d-none');
-      locationError.innerHTML =
-        '<i class="bi bi-exclamation-triangle-fill me-2"></i>Please capture your location before submitting.';
-      getLocationBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showLocationError('Location is required. Use GPS detection or enter your address manually.');
+      // Switch to whichever tab is active and scroll to it
+      document.getElementById('getLocationBtn').closest('#panelGps') &&
+        !document.getElementById('panelGps').classList.contains('d-none')
+          ? getLocationBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          : document.getElementById('panelManual').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    // Show spinner
     submitSpinner.classList.remove('d-none');
     submitIcon.classList.add('d-none');
     submitText.textContent = 'Submitting…';

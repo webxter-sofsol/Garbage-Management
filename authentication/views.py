@@ -370,70 +370,89 @@ class PasswordLoginView(View):
 
 @method_decorator(csrf_protect, name='dispatch')
 class SetPasswordView(View):
-    """View for setting password for existing users."""
+    """View for setting/changing password — works for both logged-in and unauthenticated users."""
     
     template_name = 'authentication/set_password.html'
     
     def get(self, request):
         """Display set password form."""
+        # Logged-in users can set password directly
         if request.user.is_authenticated:
-            return redirect('home')
+            context = {
+                'email': request.user.email,
+                'is_change': request.user.has_password,  # True = changing, False = setting new
+            }
+            return render(request, self.template_name, context)
         
-        # Check if email is in session (from OTP flow)
+        # Unauthenticated: email must come from session or query string
         email = request.session.get('pending_email') or request.GET.get('email')
         if not email:
             messages.error(request, 'Please start from login page.')
             return redirect('authentication:register')
         
-        context = {'email': email}
+        context = {'email': email, 'is_change': False}
         return render(request, self.template_name, context)
     
     def post(self, request):
         """Process password setting."""
-        email = request.POST.get('email', '').strip().lower()
+        # Logged-in users: get email from the authenticated user, not POST
+        if request.user.is_authenticated:
+            email = request.user.email
+            user = request.user
+        else:
+            email = request.POST.get('email', '').strip().lower()
+            user = None
+        
         password = request.POST.get('password', '')
         confirm_password = request.POST.get('confirm_password', '')
+        is_change = request.user.is_authenticated and request.user.has_password
         
-        if not email or not password or not confirm_password:
+        if not password or not confirm_password:
             messages.error(request, 'Please fill in all fields.')
-            return render(request, self.template_name, {'email': email})
+            return render(request, self.template_name, {'email': email, 'is_change': is_change})
         
         if password != confirm_password:
             messages.error(request, 'Passwords do not match.')
-            return render(request, self.template_name, {'email': email})
+            return render(request, self.template_name, {'email': email, 'is_change': is_change})
         
         if len(password) < 8:
             messages.error(request, 'Password must be at least 8 characters long.')
-            return render(request, self.template_name, {'email': email})
+            return render(request, self.template_name, {'email': email, 'is_change': is_change})
         
-        # Get or create user
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={'is_citizen': True}
-        )
+        # Get user if not already set (unauthenticated flow)
+        if user is None:
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={'is_citizen': True}
+            )
         
         # Set password
         user.set_password(password)
         user.save()
         
-        # Log user in — specify backend explicitly since multiple backends are configured
-        login(request, user, backend='authentication.backends.EmailBackend')
-        request.session.cycle_key()
-        
-        # Clear pending email from session
-        if 'pending_email' in request.session:
-            del request.session['pending_email']
-        
-        messages.success(request, 'Password set successfully! You are now logged in.')
-        logger.info(f"Password set for user {email}")
-        
-        # Redirect based on user type
-        if user.is_authority:
-            return redirect('admin_dashboard')
-        elif user.is_staff_member:
-            return redirect('staff:my_assignments')
-        else:  # citizen
+        if request.user.is_authenticated:
+            # Already logged in — just confirm and stay
+            messages.success(request, 'Password updated successfully! You can now use it to sign in.')
+            logger.info(f"Password {'changed' if is_change else 'set'} for logged-in user {email}")
+            # Redirect back to wherever they came from
+            next_url = request.GET.get('next') or request.POST.get('next', '')
+            if next_url:
+                return redirect(next_url)
             return redirect('home')
+        else:
+            # Log user in after setting password
+            login(request, user, backend='authentication.backends.EmailBackend')
+            request.session.cycle_key()
+            if 'pending_email' in request.session:
+                del request.session['pending_email']
+            messages.success(request, 'Password set successfully! You are now logged in.')
+            logger.info(f"Password set for user {email}")
+            if user.is_authority:
+                return redirect('admin_dashboard')
+            elif user.is_staff_member:
+                return redirect('staff:my_assignments')
+            else:
+                return redirect('home')
 
 
 @method_decorator(csrf_protect, name='dispatch')

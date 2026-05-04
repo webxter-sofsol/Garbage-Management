@@ -320,6 +320,19 @@
     </div>
   </div>
 
+  {% if not user.has_password %}
+  <div class="alert mb-4 d-flex align-items-center gap-3" style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:1rem 1.25rem;">
+    <i class="bi bi-key-fill fs-4" style="color:#f59e0b;flex-shrink:0;"></i>
+    <div class="flex-grow-1">
+      <div class="fw-semibold" style="color:#92400e;">You're signed in with an email code</div>
+      <div class="small" style="color:#78350f;">Set a password for faster sign-in next time — no waiting for email codes.</div>
+    </div>
+    <a href="{% url 'authentication:set_password' %}" class="btn btn-sm fw-semibold text-nowrap" style="background:#f59e0b;color:#fff;border-radius:8px;">
+      Set Password
+    </a>
+  </div>
+  {% endif %}
+
   <!-- Quick Actions -->
   <h6 class="text-muted fw-semibold mb-3 text-uppercase" style="letter-spacing:0.5px;font-size:0.78rem;">Quick Actions</h6>
   <div class="row g-3">
@@ -396,6 +409,19 @@
     </div>
   </div>
 
+  {% if not user.has_password %}
+  <div class="alert mb-4 d-flex align-items-center gap-3" style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:1rem 1.25rem;">
+    <i class="bi bi-key-fill fs-4" style="color:#f59e0b;flex-shrink:0;"></i>
+    <div class="flex-grow-1">
+      <div class="fw-semibold" style="color:#92400e;">You're signed in with an email code</div>
+      <div class="small" style="color:#78350f;">Set a password for faster sign-in next time — no waiting for email codes.</div>
+    </div>
+    <a href="{% url 'authentication:set_password' %}" class="btn btn-sm fw-semibold text-nowrap" style="background:#f59e0b;color:#fff;border-radius:8px;">
+      Set Password
+    </a>
+  </div>
+  {% endif %}
+
   <h6 class="text-muted fw-semibold mb-3 text-uppercase" style="letter-spacing:0.5px;font-size:0.78rem;">Management Tools</h6>
   <div class="row g-3">
 
@@ -460,6 +486,19 @@
       </div>
     </div>
   </div>
+
+  {% if not user.has_password %}
+  <div class="alert mb-4 d-flex align-items-center gap-3" style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:1rem 1.25rem;">
+    <i class="bi bi-key-fill fs-4" style="color:#f59e0b;flex-shrink:0;"></i>
+    <div class="flex-grow-1">
+      <div class="fw-semibold" style="color:#92400e;">You're signed in with an email code</div>
+      <div class="small" style="color:#78350f;">Set a password for faster sign-in next time — no waiting for email codes.</div>
+    </div>
+    <a href="{% url 'authentication:set_password' %}" class="btn btn-sm fw-semibold text-nowrap" style="background:#f59e0b;color:#fff;border-radius:8px;">
+      Set Password
+    </a>
+  </div>
+  {% endif %}
 
   <h6 class="text-muted fw-semibold mb-3 text-uppercase" style="letter-spacing:0.5px;font-size:0.78rem;">My Tools</h6>
   <div class="row g-3">

@@ -36,6 +36,19 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small">{{ user.email }}</span></li>
+                            {% if not user.has_password %}
+                            <li>
+                              <a class="dropdown-item text-success fw-semibold" href="{% url 'authentication:set_password' %}">
+                                <i class="bi bi-key-fill me-2"></i>Set Password
+                              </a>
+                            </li>
+                            {% else %}
+                            <li>
+                              <a class="dropdown-item" href="{% url 'authentication:set_password' %}">
+                                <i class="bi bi-key me-2"></i>Change Password
+                              </a>
+                            </li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'authentication:logout' %}">
                                 <i class="bi bi-box-arrow-right"></i> Logout
@@ -75,8 +88,21 @@
                             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-person-circle"></i>
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
+                        <ul class="dropdown-menu dropdown-menu-end">
                                 <li><span class="dropdown-item-text small">{{ user.email }}</span></li>
+                                {% if not user.has_password %}
+                                <li>
+                                  <a class="dropdown-item text-success fw-semibold" href="{% url 'authentication:set_password' %}">
+                                    <i class="bi bi-key-fill me-2"></i>Set Password
+                                  </a>
+                                </li>
+                                {% else %}
+                                <li>
+                                  <a class="dropdown-item" href="{% url 'authentication:set_password' %}">
+                                    <i class="bi bi-key me-2"></i>Change Password
+                                  </a>
+                                </li>
+                                {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'authentication:logout' %}">Logout</a></li>
                             </ul>
