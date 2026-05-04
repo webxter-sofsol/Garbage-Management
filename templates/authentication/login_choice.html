@@ -1,11 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Join GCMS — Register{% endblock %}
+{% block title %}Login — GCMS{% endblock %}
 
 {% block extra_css %}
 <style>
-  /* Hide nav/bottom-nav on auth pages */
   .desktop-nav, .mobile-header, .mobile-bottom-nav { display: none !important; }
   body { background: #f0faf4; padding-bottom: 0; }
   .main-content { padding-top: 0; }
@@ -53,39 +52,18 @@
   }
   .auth-left .brand i { margin-right: .4rem; }
   .auth-left .tagline {
-    font-size: 2rem;
+    font-size: 1.8rem;
     font-weight: 700;
     color: #fff;
-    line-height: 1.25;
-    margin-bottom: 1.25rem;
+    line-height: 1.3;
+    margin-bottom: .75rem;
     position: relative; z-index: 1;
   }
   .auth-left .tagline-sub {
     color: rgba(255,255,255,.8);
     font-size: .95rem;
     line-height: 1.6;
-    margin-bottom: 2.5rem;
     position: relative; z-index: 1;
-  }
-  .auth-feature {
-    display: flex;
-    align-items: center;
-    gap: .85rem;
-    margin-bottom: 1rem;
-    position: relative; z-index: 1;
-  }
-  .auth-feature .feat-icon {
-    width: 36px; height: 36px;
-    border-radius: 10px;
-    background: rgba(255,255,255,.15);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; color: #fff;
-    flex-shrink: 0;
-  }
-  .auth-feature .feat-text {
-    color: rgba(255,255,255,.9);
-    font-size: .875rem;
-    font-weight: 500;
   }
 
   /* Right panel */
@@ -125,7 +103,7 @@
     box-shadow: 0 0 0 3px rgba(25,135,84,.15);
   }
 
-  .registration-method-card {
+  .login-method-card {
     border: 2px solid #e5e7eb;
     border-radius: 12px;
     padding: 1.5rem;
@@ -134,13 +112,22 @@
     transition: all .2s;
     background: #fff;
   }
-  .registration-method-card:hover {
+  .login-method-card:hover {
     border-color: #198754;
     box-shadow: 0 4px 12px rgba(25,135,84,.1);
   }
-  .registration-method-card.selected {
+  .login-method-card.selected {
     border-color: #198754;
     background: #f0faf4;
+  }
+  .login-method-card.disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    background: #f8f9fa;
+  }
+  .login-method-card.disabled:hover {
+    border-color: #e5e7eb;
+    box-shadow: none;
   }
 
   .method-icon {
@@ -172,14 +159,6 @@
     font-size: .85rem;
     color: #6c757d;
     line-height: 1.4;
-  }
-  .method-pros {
-    font-size: .8rem;
-    color: #198754;
-    margin-top: .5rem;
-  }
-  .method-pros i {
-    margin-right: .25rem;
   }
 
   .btn-auth {
@@ -220,18 +199,13 @@
     z-index: 2;
   }
 
-  /* Mobile: stack vertically */
   @media (max-width: 767px) {
     .auth-wrap { flex-direction: column; }
     .auth-left {
       flex: none;
-      padding: 2rem 1.5rem;
-      min-height: auto;
+      padding: 1.75rem 1.5rem;
     }
     .auth-left .tagline { font-size: 1.4rem; }
-    .auth-left .tagline-sub, .auth-feature { display: none; }
-    .auth-left .brand { margin-bottom: 0; }
-    .auth-right { padding: 2rem 1.25rem; }
   }
 </style>
 {% endblock %}
@@ -239,33 +213,21 @@
 {% block content %}
 <div class="auth-wrap">
 
-  <!-- Left branding panel -->
+  <!-- Left panel -->
   <div class="auth-left">
     <div class="brand"><i class="bi bi-recycle"></i>GCMS</div>
-    <div class="tagline">Join the movement for cleaner cities</div>
+    <div class="tagline">Welcome back</div>
     <p class="tagline-sub">
-      Create your account and start making a difference in your community through smart waste management.
+      Choose your preferred login method. You can use either OTP (sent to your email) or your password if you've set one.
     </p>
-    <div class="auth-feature">
-      <div class="feat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
-      <div class="feat-text">Report waste issues instantly</div>
-    </div>
-    <div class="auth-feature">
-      <div class="feat-icon"><i class="bi bi-geo-alt-fill"></i></div>
-      <div class="feat-text">Track resolution progress</div>
-    </div>
-    <div class="auth-feature">
-      <div class="feat-icon"><i class="bi bi-bell-fill"></i></div>
-      <div class="feat-text">Get real-time notifications</div>
-    </div>
   </div>
 
   <!-- Right form panel -->
   <div class="auth-right">
     <div class="auth-form-wrap">
 
-      <div class="form-title">Create your account</div>
-      <p class="form-subtitle">Choose how you'd like to register and sign in</p>
+      <div class="form-title">Sign in to your account</div>
+      <p class="form-subtitle">Enter your email and choose how you'd like to sign in</p>
 
       {% if messages %}
         {% for message in messages %}
@@ -276,74 +238,74 @@
         {% endfor %}
       {% endif %}
 
-      <form method="post" id="registerForm">
+      <form method="post" id="loginChoiceForm">
         {% csrf_token %}
         
         <!-- Email input -->
         <div class="mb-3">
           <label for="email" class="form-label">Email address</label>
           <input type="email" class="form-control" id="email" name="email" 
-                 value="{{ email }}" placeholder="Enter your email address" required>
+                 value="{{ email }}" placeholder="Enter your email" required>
         </div>
 
-        <!-- Registration method selection -->
-        <div class="mb-3">
-          <label class="form-label">Choose registration method</label>
+        <!-- Login method selection -->
+        <div class="mb-3" id="methodSelection" {% if not email %}style="display:none;"{% endif %}>
+          <label class="form-label">Choose login method</label>
           
           <!-- OTP Method -->
-          <div class="registration-method-card" data-method="otp">
+          <div class="login-method-card" id="otpCard" data-method="otp">
             <div class="method-icon otp">
               <i class="bi bi-envelope-fill"></i>
             </div>
-            <div class="method-title">Email Code (Recommended)</div>
+            <div class="method-title">Email Code (OTP)</div>
             <div class="method-desc">
-              We'll send a 6-digit code to your email. Quick setup, no password to remember.
-            </div>
-            <div class="method-pros">
-              <i class="bi bi-check-circle-fill"></i>No password required
-              <i class="bi bi-check-circle-fill ms-2"></i>More secure
-              <i class="bi bi-check-circle-fill ms-2"></i>Faster setup
+              We'll send a 6-digit code to your email. No password required.
             </div>
           </div>
 
-          <!-- Password Method -->
-          <div class="registration-method-card" data-method="password">
+          <!-- Password Method — disabled state is managed by JS after AJAX check -->
+          <div class="login-method-card {% if not has_password %}disabled{% endif %}"
+               id="passwordCard" data-method="password">
             <div class="method-icon password">
               <i class="bi bi-key-fill"></i>
             </div>
-            <div class="method-title">Password</div>
-            <div class="method-desc">
-              Create a password for traditional login. You can also use email codes later.
+            <div class="method-title">
+              Password
+              <small class="text-muted" id="passwordUnavailable" {% if has_password %}style="display:none;"{% endif %}>(Not available)</small>
             </div>
-            <div class="method-pros">
-              <i class="bi bi-check-circle-fill"></i>Familiar method
-              <i class="bi bi-check-circle-fill ms-2"></i>Works offline
-              <i class="bi bi-check-circle-fill ms-2"></i>Faster login
+            <div class="method-desc" id="passwordDesc">
+              {% if has_password %}
+                Sign in with your password for faster access.
+              {% else %}
+                You haven't set a password yet. Use OTP login or set a password first.
+              {% endif %}
             </div>
           </div>
 
           <input type="hidden" name="method" id="selectedMethod">
         </div>
 
-        <button type="submit" class="btn-auth" id="registerBtn">
-          <span id="btnText">Continue Registration</span>
+        <button type="submit" class="btn-auth" id="continueBtn">
+          <span id="btnText">Continue</span>
           <span id="btnLoad" class="d-none">
             <span class="spinner-border spinner-border-sm me-2"></span>Processing…
           </span>
         </button>
       </form>
 
-      <div class="divider"><span>Already have an account?</span></div>
-
-      <div class="text-center">
-        <a href="{% url 'authentication:login_choice' %}" class="btn btn-outline-secondary">
-          <i class="bi bi-box-arrow-in-right me-1"></i>Sign In Instead
-        </a>
+      <div id="setPasswordLink" {% if has_password %}style="display:none;"{% endif %}>
+        <div class="divider"><span>or</span></div>
+        <div class="text-center">
+          <a href="{% url 'authentication:set_password' %}{% if email %}?email={{ email }}{% endif %}"
+             class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-key me-1"></i>Set up password login
+          </a>
+        </div>
       </div>
 
       <div class="text-center mt-3">
         <p style="font-size:.82rem;color:#9ca3af;">
-          By registering, you agree to help keep your community clean and follow our community guidelines.
+          New to GCMS? Just enter your email above and we'll create your account automatically.
         </p>
       </div>
 
@@ -357,79 +319,108 @@
 <script>
 (function() {
   const emailInput = document.getElementById('email');
-  const methodCards = document.querySelectorAll('.registration-method-card');
+  const methodSelection = document.getElementById('methodSelection');
+  const otpCard = document.getElementById('otpCard');
+  const passwordCard = document.getElementById('passwordCard');
+  const passwordUnavailable = document.getElementById('passwordUnavailable');
   const selectedMethodInput = document.getElementById('selectedMethod');
-  const form = document.getElementById('registerForm');
-  const registerBtn = document.getElementById('registerBtn');
+  const form = document.getElementById('loginChoiceForm');
+  const continueBtn = document.getElementById('continueBtn');
   const btnText = document.getElementById('btnText');
   const btnLoad = document.getElementById('btnLoad');
+  const setPasswordLink = document.getElementById('setPasswordLink');
 
-  // Handle method selection
-  methodCards.forEach(card => {
+  let checkTimer = null;
+  let currentHasPassword = {{ has_password|yesno:"true,false" }};
+
+  function updatePasswordCard(hasPassword) {
+    currentHasPassword = hasPassword;
+    if (hasPassword) {
+      passwordCard.classList.remove('disabled');
+      passwordCard.removeAttribute('title');
+      passwordUnavailable.style.display = 'none';
+      document.getElementById('passwordDesc').textContent = 'Sign in with your password for faster access.';
+      if (setPasswordLink) setPasswordLink.style.display = 'none';
+    } else {
+      passwordCard.classList.add('disabled');
+      passwordCard.setAttribute('title', 'No password set for this account');
+      passwordUnavailable.style.display = 'inline';
+      document.getElementById('passwordDesc').textContent = "You haven't set a password yet. Use OTP login or set a password first.";
+      if (setPasswordLink) setPasswordLink.style.display = 'block';
+      // If password was selected, deselect it
+      if (selectedMethodInput.value === 'password') {
+        passwordCard.classList.remove('selected');
+        selectedMethodInput.value = '';
+        btnText.innerHTML = 'Continue';
+      }
+    }
+  }
+
+  function checkEmail(email) {
+    fetch(`/auth/check-email/?email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(data => {
+        updatePasswordCard(data.has_password);
+        // Update set-password link href
+        if (setPasswordLink) {
+          setPasswordLink.querySelector('a').href = `/auth/set-password/?email=${encodeURIComponent(email)}`;
+        }
+      })
+      .catch(() => updatePasswordCard(false));
+  }
+
+  // Debounced email check on input
+  emailInput.addEventListener('input', function() {
+    const email = this.value.trim();
+    clearTimeout(checkTimer);
+
+    if (email.includes('@') && email.includes('.')) {
+      methodSelection.style.display = 'block';
+      checkTimer = setTimeout(() => checkEmail(email), 400);
+    } else {
+      methodSelection.style.display = email ? 'block' : 'none';
+      updatePasswordCard(false);
+      clearSelection();
+    }
+  });
+
+  // Handle method card clicks
+  [otpCard, passwordCard].forEach(card => {
     card.addEventListener('click', function() {
-      // Clear previous selection
-      methodCards.forEach(c => c.classList.remove('selected'));
-      
-      // Select this method
+      if (this.classList.contains('disabled')) return;
+
+      [otpCard, passwordCard].forEach(c => c.classList.remove('selected'));
       this.classList.add('selected');
       selectedMethodInput.value = this.dataset.method;
-      
-      // Update button text
-      const methodName = this.dataset.method === 'otp' ? 'Send Verification Code' : 'Create Account with Password';
-      btnText.innerHTML = methodName;
+
+      btnText.innerHTML = this.dataset.method === 'otp' ? 'Send Code' : 'Continue with Password';
     });
   });
 
-  // Email validation
-  emailInput.addEventListener('input', function() {
-    const email = this.value.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
-    if (email && emailRegex.test(email)) {
-      this.classList.add('is-valid');
-      this.classList.remove('is-invalid');
-    } else if (email) {
-      this.classList.add('is-invalid');
-      this.classList.remove('is-valid');
-    } else {
-      this.classList.remove('is-valid', 'is-invalid');
-    }
-  });
+  function clearSelection() {
+    [otpCard, passwordCard].forEach(c => c.classList.remove('selected'));
+    selectedMethodInput.value = '';
+    btnText.innerHTML = 'Continue';
+  }
 
   // Form submission
   form.addEventListener('submit', function(e) {
-    const email = emailInput.value.trim();
-    const method = selectedMethodInput.value;
-    
-    if (!email) {
+    if (!selectedMethodInput.value) {
       e.preventDefault();
-      alert('Please enter your email address.');
-      emailInput.focus();
+      alert('Please select a login method.');
       return;
     }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      e.preventDefault();
-      alert('Please enter a valid email address.');
-      emailInput.focus();
-      return;
-    }
-    
-    if (!method) {
-      e.preventDefault();
-      alert('Please select a registration method.');
-      return;
-    }
-    
-    registerBtn.disabled = true;
+    continueBtn.disabled = true;
     btnText.classList.add('d-none');
     btnLoad.classList.remove('d-none');
   });
 
-  // Auto-select OTP method (recommended)
-  if (methodCards.length > 0) {
-    methodCards[0].click(); // Select OTP by default
+  // On page load: if email is pre-filled (e.g. from redirect), check it immediately
+  if (emailInput.value.trim()) {
+    methodSelection.style.display = 'block';
+    checkEmail(emailInput.value.trim());
+    // Auto-select OTP as default
+    otpCard.click();
   }
 })();
 </script>

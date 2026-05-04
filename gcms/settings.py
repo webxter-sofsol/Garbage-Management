@@ -148,12 +148,22 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Custom User Model
 AUTH_USER_MODEL = "authentication.User"
 
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'authentication.backends.EmailBackend',  # Email/password authentication
+    'authentication.backends.OTPBackend',    # OTP authentication
+    'django.contrib.auth.backends.ModelBackend',  # Fallback for admin
+]
+
 # Session settings
-SESSION_COOKIE_AGE = 1800  # 30 minutes
+SESSION_COOKIE_AGE = 86400  # 24 hours (increased from 30 minutes)
 SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Keep sessions after browser close
 SESSION_COOKIE_SECURE = not DEBUG  # True in production
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+# Add session engine for better reliability
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # CSRF settings
 CSRF_COOKIE_SECURE = not DEBUG  # True in production

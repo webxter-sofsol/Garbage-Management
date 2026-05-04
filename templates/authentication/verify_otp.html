@@ -283,6 +283,13 @@
           <div class="timer-bar" id="timerBar" style="width:100%;"></div>
         </div>
         <div class="timer-text" id="timerText">Code expires in 10:00</div>
+        
+        <!-- Session timeout warning -->
+        <div class="alert alert-info py-2 mb-3" style="font-size:.8rem;">
+          <i class="bi bi-info-circle me-1"></i>
+          <strong>Session timeout:</strong> Your login session will expire in 30 minutes. 
+          If you see "Session Expired" error, please start over from the login page.
+        </div>
 
         <button type="submit" class="btn-auth" id="submitBtn">
           <span id="btnText"><i class="bi bi-check-circle me-2"></i>Verify & Sign In</span>
@@ -301,8 +308,18 @@
       </div>
 
       <div class="text-center mt-3">
+        <a href="{% url 'authentication:password_login' %}?email={{ email }}" 
+           style="font-size:.82rem;color:#198754;text-decoration:none;">
+          <i class="bi bi-key me-1"></i>Use password instead
+        </a>
+        <span style="color:#dee2e6;margin:0 .5rem;">•</span>
+        <a href="{% url 'authentication:register_password' %}?email={{ email }}" 
+           style="font-size:.82rem;color:#8b5cf6;text-decoration:none;">
+          <i class="bi bi-person-plus me-1"></i>Create password account
+        </a>
+        <span style="color:#dee2e6;margin:0 .5rem;">•</span>
         <a href="{% url 'authentication:register' %}" style="font-size:.82rem;color:#9ca3af;text-decoration:none;">
-          <i class="bi bi-arrow-left me-1"></i>Use a different email
+          <i class="bi bi-arrow-left me-1"></i>Different email
         </a>
       </div>
 

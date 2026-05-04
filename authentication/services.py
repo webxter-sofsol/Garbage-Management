@@ -126,16 +126,14 @@ class OTPService:
             if otp is None:
                 return False, "Invalid or expired OTP", None
             
-            # Get or create user
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={'is_citizen': True}
-            )
+            # Use OTP authentication backend
+            from django.contrib.auth import authenticate
+            user = authenticate(email=email, otp_verified=True)
             
-            if created:
-                logger.info(f"New user created: {email}")
-            
-            return True, "OTP verified successfully", user
+            if user:
+                return True, "OTP verified successfully", user
+            else:
+                return False, "Authentication failed", None
             
         except Exception as e:
             logger.error(f"Error verifying OTP for {email}: {str(e)}")
@@ -206,3 +204,63 @@ class AuthenticationService:
             tuple: (success: bool, message: str, user: User or None)
         """
         return OTPService.verify_otp(email, code)
+    
+    @staticmethod
+    def authenticate_with_password(email, password):
+        """
+        Authenticate user with email and password.
+        
+        Args:
+            email (str): Email address
+            password (str): Password
+            
+        Returns:
+            tuple: (success: bool, message: str, user: User or None)
+        """
+        try:
+            from django.contrib.auth import authenticate
+            
+            # Validate email format
+            from django.core.validators import validate_email
+            from django.core.exceptions import ValidationError
+            
+            try:
+                validate_email(email)
+            except ValidationError:
+                return False, "Invalid email format", None
+            
+            # Check if user exists and has password
+            try:
+                user = User.objects.get(email=email)
+                if not user.has_password:
+                    return False, "No password set for this account. Please use OTP login.", None
+            except User.DoesNotExist:
+                return False, "No account found with this email address.", None
+            
+            # Authenticate
+            authenticated_user = authenticate(username=email, password=password)
+            if authenticated_user:
+                return True, "Login successful", authenticated_user
+            else:
+                return False, "Invalid email or password", None
+                
+        except Exception as e:
+            logger.error(f"Error in password authentication for {email}: {str(e)}")
+            return False, "An error occurred. Please try again.", None
+    
+    @staticmethod
+    def get_login_methods(email):
+        """
+        Get available login methods for a user.
+        
+        Args:
+            email (str): Email address
+            
+        Returns:
+            list: Available login methods ['otp', 'password']
+        """
+        try:
+            user = User.objects.get(email=email)
+            return user.get_login_methods()
+        except User.DoesNotExist:
+            return ['otp']  # New users can only use OTP initially

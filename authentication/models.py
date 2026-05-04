@@ -38,12 +38,27 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
     Custom user model using email as the unique identifier.
     Supports three user types: citizen, authority, and staff_member.
+    Supports both OTP and password authentication.
     """
     email = models.EmailField(
         max_length=255,
         unique=True,
         db_index=True,
         help_text='User email address (used for login)'
+    )
+    password = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text='Password for traditional login (optional, can use OTP instead)'
+    )
+    has_password = models.BooleanField(
+        default=False,
+        help_text='Whether user has set a password for login'
+    )
+    prefer_otp = models.BooleanField(
+        default=True,
+        help_text='Whether user prefers OTP login over password'
     )
     is_citizen = models.BooleanField(
         default=True,
@@ -83,10 +98,29 @@ class User(AbstractBaseUser, PermissionsMixin):
             models.Index(fields=['is_citizen']),
             models.Index(fields=['is_authority']),
             models.Index(fields=['is_staff_member']),
+            models.Index(fields=['has_password']),
         ]
     
     def __str__(self):
         return self.email
+    
+    def set_password(self, raw_password):
+        """Set password and mark user as having password."""
+        super().set_password(raw_password)
+        self.has_password = True
+    
+    def check_password(self, raw_password):
+        """Check password if user has one set."""
+        if not self.has_password or not self.password:
+            return False
+        return super().check_password(raw_password)
+    
+    def get_login_methods(self):
+        """Return available login methods for this user."""
+        methods = ['otp']  # OTP is always available
+        if self.has_password:
+            methods.append('password')
+        return methods
     
     def get_user_type(self):
         """Return the user type as a string."""
