@@ -3,12 +3,31 @@ Authentication services for OTP generation and email sending.
 """
 from django.core.mail import send_mail
 from django.conf import settings
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from .models import OTP, User
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
+
+
+def _send_mail_async(subject, plain_message, from_email, recipient_list, html_message):
+    """Send email in a background thread so the request is never blocked."""
+    def _send():
+        try:
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email=from_email,
+                recipient_list=recipient_list,
+                html_message=html_message,
+                fail_silently=True,   # background thread — log errors, don't raise
+            )
+            logger.info(f"OTP email sent to {recipient_list[0]}")
+        except Exception as e:
+            logger.error(f"Background email send failed to {recipient_list[0]}: {e}")
+
+    t = threading.Thread(target=_send, daemon=True)
+    t.start()
 
 
 class OTPService:
@@ -47,65 +66,47 @@ class OTPService:
     @staticmethod
     def send_otp_email(email, code):
         """
-        Send OTP code via email.
-        
-        Args:
-            email (str): Recipient email address
-            code (str): 6-digit OTP code
-            
-        Returns:
-            bool: True if email sent successfully, False otherwise
+        Send OTP code via email (non-blocking — dispatched to a background thread).
+
+        Returns True immediately after dispatching; actual delivery is async.
         """
-        try:
-            subject = 'Your GCMS Login Code'
-            
-            # Create HTML message
-            html_message = f"""
-            <html>
-                <body style="font-family: Arial, sans-serif; padding: 20px;">
-                    <div style="max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-                        <h2 style="color: #198754;">Garbage Collection Management System</h2>
-                        <p>Your one-time password (OTP) for login is:</p>
-                        <div style="background-color: #fff; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-                            <h1 style="color: #198754; letter-spacing: 5px; margin: 0;">{code}</h1>
-                        </div>
-                        <p>This code will expire in <strong>10 minutes</strong>.</p>
-                        <p>If you didn't request this code, please ignore this email.</p>
-                        <hr style="border: none; border-top: 1px solid #dee2e6; margin: 20px 0;">
-                        <p style="color: #6c757d; font-size: 12px;">
-                            This is an automated message from GCMS. Please do not reply to this email.
-                        </p>
+        subject = 'Your GCMS Login Code'
+
+        html_message = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+                    <h2 style="color: #198754;">Garbage Collection Management System</h2>
+                    <p>Your one-time password (OTP) for login is:</p>
+                    <div style="background-color: #fff; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                        <h1 style="color: #198754; letter-spacing: 5px; margin: 0;">{code}</h1>
                     </div>
-                </body>
-            </html>
-            """
-            
-            # Create plain text version
-            plain_message = f"""
-            Garbage Collection Management System
-            
-            Your one-time password (OTP) for login is: {code}
-            
-            This code will expire in 10 minutes.
-            
-            If you didn't request this code, please ignore this email.
-            """
-            
-            # Send email
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error sending OTP email to {email}: {str(e)}")
-            return False
+                    <p>This code will expire in <strong>10 minutes</strong>.</p>
+                    <p>If you didn't request this code, please ignore this email.</p>
+                    <hr style="border: none; border-top: 1px solid #dee2e6; margin: 20px 0;">
+                    <p style="color: #6c757d; font-size: 12px;">
+                        This is an automated message from GCMS. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+
+        plain_message = (
+            f"Garbage Collection Management System\n\n"
+            f"Your OTP for login is: {code}\n\n"
+            f"This code will expire in 10 minutes.\n"
+            f"If you didn't request this, please ignore this email."
+        )
+
+        _send_mail_async(
+            subject=subject,
+            plain_message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            html_message=html_message,
+        )
+        return True  # always return True — delivery is async
     
     @staticmethod
     def verify_otp(email, code):

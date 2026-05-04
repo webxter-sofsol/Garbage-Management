@@ -230,6 +230,7 @@ EMAIL_USE_TLS = False  # TLS is for port 587
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "info@webxter.in")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "MagicShow@123")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "info@webxter.in")
+EMAIL_TIMEOUT = 10  # seconds — prevents background thread from hanging indefinitely
 
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
