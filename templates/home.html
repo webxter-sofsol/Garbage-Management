@@ -311,95 +311,6 @@
   <div class="welcome-banner">
     <div class="d-flex align-items-center gap-3">
       <div style="background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <i class="bi bi-person-fill text-white" style="font-size:1.6rem;"></i>
-      </div>
-      <div>
-        <p class="mb-0 text-white" style="opacity:0.8;font-size:0.9rem;">Welcome back</p>
-        <h4 class="fw-bold text-white mb-0">{{ user.email }}</h4>
-      </div>
-    </div>
-  </div>
-
-  {% if not user.has_password %}
-  <div class="alert mb-4 d-flex align-items-center gap-3" style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:1rem 1.25rem;">
-    <i class="bi bi-key-fill fs-4" style="color:#f59e0b;flex-shrink:0;"></i>
-    <div class="flex-grow-1">
-      <div class="fw-semibold" style="color:#92400e;">You're signed in with an email code</div>
-      <div class="small" style="color:#78350f;">Set a password for faster sign-in next time — no waiting for email codes.</div>
-    </div>
-    <a href="{% url 'authentication:set_password' %}" class="btn btn-sm fw-semibold text-nowrap" style="background:#f59e0b;color:#fff;border-radius:8px;">
-      Set Password
-    </a>
-  </div>
-  {% endif %}
-
-  <!-- Quick Actions -->
-  <h6 class="text-muted fw-semibold mb-3 text-uppercase" style="letter-spacing:0.5px;font-size:0.78rem;">Quick Actions</h6>
-  <div class="row g-3">
-
-    <div class="col-6 col-lg-4">
-      <a href="{% url 'complaints:create' %}" class="action-card">
-        <div class="dash-card">
-          <div class="card-icon text-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
-          <div class="card-title">Report Issue</div>
-          <p class="card-text">Submit a new waste complaint with photo and location.</p>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-6 col-lg-4">
-      <a href="{% url 'complaints:my_complaints' %}" class="action-card">
-        <div class="dash-card">
-          <div class="card-icon text-primary"><i class="bi bi-list-check"></i></div>
-          <div class="card-title">My Complaints</div>
-          <p class="card-text">View and track all your submitted complaints.</p>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-6 col-lg-4">
-      <a href="{% url 'pickups:create' %}" class="action-card">
-        <div class="dash-card">
-          <div class="card-icon text-success"><i class="bi bi-calendar-plus-fill"></i></div>
-          <div class="card-title">Schedule Pickup</div>
-          <p class="card-text">Request a garbage pickup at your address.</p>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-6 col-lg-4">
-      <a href="{% url 'pickups:my_requests' %}" class="action-card">
-        <div class="dash-card">
-          <div class="card-icon text-warning"><i class="bi bi-truck"></i></div>
-          <div class="card-title">My Pickups</div>
-          <p class="card-text">Check the status of your pickup requests.</p>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-6 col-lg-4">
-      <a href="{% url 'bins:map' %}" class="action-card">
-        <div class="dash-card">
-          <div class="card-icon" style="color:#0dcaf0;"><i class="bi bi-geo-alt-fill"></i></div>
-          <div class="card-title">Bin Locations</div>
-          <p class="card-text">Find the nearest waste bins on the map.</p>
-        </div>
-      </a>
-    </div>
-
-  </div>
-</div>
-
-{% elif user.is_citizen %}
-{# ============================================================ #}
-{#  CITIZEN DASHBOARD                                           #}
-{# ============================================================ #}
-
-<div class="container py-4">
-  <!-- Welcome Banner -->
-  <div class="welcome-banner">
-    <div class="d-flex align-items-center gap-3">
-      <div style="background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
         <i class="bi bi-shield-fill-check text-white" style="font-size:1.6rem;"></i>
       </div>
       <div>
@@ -461,6 +372,64 @@
           <div class="card-icon" style="color:#0dcaf0;"><i class="bi bi-geo-alt-fill"></i></div>
           <div class="card-title">Staff Tracking</div>
           <p class="card-text">Monitor staff locations and on-duty status in real time.</p>
+        </div>
+      </a>
+    </div>
+
+  </div>
+</div>
+
+{% elif user.is_citizen %}
+{# ============================================================ #}
+{#  CITIZEN DASHBOARD                                           #}
+{# ============================================================ #}
+
+<div class="container py-4">
+  <!-- Welcome Banner -->
+  <div class="welcome-banner">
+    <div class="d-flex align-items-center gap-3">
+      <div style="background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i class="bi bi-person-fill text-white" style="font-size:1.6rem;"></i>
+      </div>
+      <div>
+        <p class="mb-0 text-white" style="opacity:0.8;font-size:0.9rem;">Welcome back</p>
+        <h4 class="fw-bold text-white mb-0">{{ user.email }}</h4>
+      </div>
+    </div>
+  </div>
+
+  {% if not user.has_password %}
+  <div class="alert mb-4 d-flex align-items-center gap-3" style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:1rem 1.25rem;">
+    <i class="bi bi-key-fill fs-4" style="color:#f59e0b;flex-shrink:0;"></i>
+    <div class="flex-grow-1">
+      <div class="fw-semibold" style="color:#92400e;">You're signed in with an email code</div>
+      <div class="small" style="color:#78350f;">Set a password for faster sign-in next time — no waiting for email codes.</div>
+    </div>
+    <a href="{% url 'authentication:set_password' %}" class="btn btn-sm fw-semibold text-nowrap" style="background:#f59e0b;color:#fff;border-radius:8px;">
+      Set Password
+    </a>
+  </div>
+  {% endif %}
+
+  <h6 class="text-muted fw-semibold mb-3 text-uppercase" style="letter-spacing:0.5px;font-size:0.78rem;">Complaints</h6>
+  <div class="row g-3">
+
+    <div class="col-6 col-lg-4">
+      <a href="{% url 'complaints:create' %}" class="action-card">
+        <div class="dash-card">
+          <div class="card-icon text-danger"><i class="bi bi-exclamation-triangle-fill"></i></div>
+          <div class="card-title">Report Issue</div>
+          <p class="card-text">Submit a new waste complaint with photo and location.</p>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-6 col-lg-4">
+      <a href="{% url 'complaints:my_complaints' %}" class="action-card">
+        <div class="dash-card">
+          <div class="card-icon text-primary"><i class="bi bi-list-check"></i></div>
+          <div class="card-title">My Complaints</div>
+          <p class="card-text">View and track all your submitted complaints.</p>
         </div>
       </a>
     </div>
