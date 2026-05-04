@@ -264,31 +264,11 @@
           <div id="panelManual" class="d-none">
             <div class="mb-2">
               <label class="form-label small fw-semibold">Full Address <span class="text-danger">*</span></label>
-              <div class="input-group">
-                <input type="text" id="manualAddress" class="form-control"
-                       placeholder="e.g. 12 MG Road, Sector 5, Mumbai 400001"
-                       autocomplete="street-address">
-                <button type="button" class="btn btn-outline-success" id="searchAddressBtn" title="Search">
-                  <i class="bi bi-search"></i>
-                </button>
-              </div>
-              <div class="form-text">Enter a full address and click Search to pin it on the map.</div>
+              <input type="text" id="manualAddress" class="form-control"
+                     placeholder="e.g. 12 MG Road, Sector 5, Mumbai 400001"
+                     autocomplete="street-address">
+              <div class="form-text">Type your address and it will be saved as-is.</div>
             </div>
-            <div class="row g-2 mb-2">
-              <div class="col-6">
-                <label class="form-label small fw-semibold">Latitude</label>
-                <input type="number" id="manualLat" class="form-control form-control-sm"
-                       placeholder="e.g. 19.076090" step="0.000001" min="-90" max="90">
-              </div>
-              <div class="col-6">
-                <label class="form-label small fw-semibold">Longitude</label>
-                <input type="number" id="manualLng" class="form-control form-control-sm"
-                       placeholder="e.g. 72.877426" step="0.000001" min="-180" max="180">
-              </div>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="pinManualBtn">
-              <i class="bi bi-pin-map me-1"></i>Pin These Coordinates
-            </button>
           </div>
 
           <!-- Shared feedback + map -->
@@ -530,65 +510,26 @@
 
   getLocationBtn.addEventListener('click', captureGPS);
 
-  /* ── Manual panel: address search ── */
-  const searchAddressBtn = document.getElementById('searchAddressBtn');
-  const manualAddress    = document.getElementById('manualAddress');
+  /* ── Manual panel: accept address as-is, no geocoding needed ── */
+  const manualAddress = document.getElementById('manualAddress');
 
-  async function searchAddress() {
-    const query = manualAddress.value.trim();
-    if (!query) {
-      showLocationError('Please enter an address to search.');
-      return;
-    }
-    searchAddressBtn.disabled = true;
-    searchAddressBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  function acceptManualAddress() {
+    const addr = manualAddress.value.trim();
+    if (!addr) return;
+    // Use 0,0 as placeholder coords — the address text is what matters
+    latInput.value  = '0.000000';
+    lngInput.value  = '0.000000';
+    addrInput.value = addr;
+    locationSuccess.classList.remove('d-none');
+    locationSuccess.innerHTML =
+      `<i class="bi bi-check-circle-fill me-2"></i>
+       <strong>Address saved</strong><br>
+       <span class="opacity-75">${addr}</span>`;
     locationError.classList.add('d-none');
-
-    try {
-      const result = await forwardGeocode(query);
-      if (result) {
-        const lat = parseFloat(result.lat).toFixed(6);
-        const lng = parseFloat(result.lon).toFixed(6);
-        document.getElementById('manualLat').value = lat;
-        document.getElementById('manualLng').value = lng;
-        setLocation(lat, lng);
-        setLocationSuccess(lat, lng, result.display_name);
-      } else {
-        showLocationError('Address not found. Try a more specific address or enter coordinates directly.');
-      }
-    } catch {
-      showLocationError('Search failed. Please check your connection or enter coordinates manually.');
-    } finally {
-      searchAddressBtn.disabled = false;
-      searchAddressBtn.innerHTML = '<i class="bi bi-search"></i>';
-    }
   }
 
-  searchAddressBtn.addEventListener('click', searchAddress);
-  manualAddress.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchAddress(); } });
-
-  /* ── Manual panel: pin coordinates ── */
-  document.getElementById('pinManualBtn').addEventListener('click', async () => {
-    const lat = document.getElementById('manualLat').value.trim();
-    const lng = document.getElementById('manualLng').value.trim();
-
-    if (!lat || !lng) {
-      showLocationError('Please enter both latitude and longitude.');
-      return;
-    }
-    const latF = parseFloat(lat), lngF = parseFloat(lng);
-    if (isNaN(latF) || latF < -90 || latF > 90) {
-      showLocationError('Latitude must be a number between -90 and 90.');
-      return;
-    }
-    if (isNaN(lngF) || lngF < -180 || lngF > 180) {
-      showLocationError('Longitude must be a number between -180 and 180.');
-      return;
-    }
-    setLocation(latF.toFixed(6), lngF.toFixed(6));
-    const addr = await reverseGeocode(latF, lngF);
-    setLocationSuccess(latF.toFixed(6), lngF.toFixed(6), addr);
-  });
+  // Accept address on every keystroke so submit always has the latest value
+  manualAddress.addEventListener('input', acceptManualAddress);
 
   /* ── Character counter ── */
   const descTextarea = document.getElementById('description');
@@ -681,14 +622,26 @@
     }
     descTextarea.classList.remove('is-invalid');
 
-    if (!lat || !lng) {
+    // Manual tab: accept whatever is typed, set coords if not already set
+    const manualPanelVisible = !document.getElementById('panelManual').classList.contains('d-none');
+    if (manualPanelVisible) {
+      const addr = manualAddress.value.trim();
+      if (!addr) {
+        e.preventDefault();
+        showLocationError('Please enter an address.');
+        manualAddress.focus();
+        return;
+      }
+      // Ensure coords are set (may not be if user typed without triggering input event)
+      if (!latInput.value || !lngInput.value) {
+        latInput.value  = '0.000000';
+        lngInput.value  = '0.000000';
+        addrInput.value = addr;
+      }
+    } else if (!lat || !lng) {
       e.preventDefault();
-      showLocationError('Location is required. Use GPS detection or enter your address manually.');
-      // Switch to whichever tab is active and scroll to it
-      document.getElementById('getLocationBtn').closest('#panelGps') &&
-        !document.getElementById('panelGps').classList.contains('d-none')
-          ? getLocationBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          : document.getElementById('panelManual').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showLocationError('Location is required. Please detect your GPS location.');
+      getLocationBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 

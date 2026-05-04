@@ -33,12 +33,44 @@ class CreateComplaintView(View):
         address = request.POST.get('address', '').strip()
         photos = request.FILES.getlist('photos')
         
-        # Validate data
-        is_valid, errors = ComplaintValidator.validate_complaint_data(
-            description, latitude, longitude, photos
+        # Detect manual address entry (coords are 0,0 placeholder)
+        is_manual = (
+            address and
+            str(latitude).startswith('0.') and
+            str(longitude).startswith('0.')
         )
         
-        if not is_valid:
+        # Validate description
+        desc_valid, desc_error = ComplaintValidator.validate_description(description)
+        errors = {}
+        if not desc_valid:
+            errors['description'] = desc_error
+        
+        # Validate coordinates only for GPS entries
+        if not is_manual:
+            coord_valid, coord_error = ComplaintValidator.validate_coordinates(latitude, longitude)
+            if not coord_valid:
+                errors['location'] = coord_error
+        
+        # Validate address is present for manual entries
+        if is_manual and not address:
+            errors['location'] = 'Please enter an address.'
+        
+        # Validate photos
+        if photos:
+            photo_count_valid, photo_count_error = ComplaintValidator.validate_photo_count(len(photos))
+            if not photo_count_valid:
+                errors['photos'] = photo_count_error
+            else:
+                photo_errors = []
+                for i, photo in enumerate(photos):
+                    valid, error = ComplaintValidator.validate_photo(photo)
+                    if not valid:
+                        photo_errors.append(f"Photo {i+1}: {error}")
+                if photo_errors:
+                    errors['photos'] = '; '.join(photo_errors)
+        
+        if errors:
             for field, error in errors.items():
                 messages.error(request, f"{field.title()}: {error}")
             return render(request, self.template_name, {
@@ -48,17 +80,15 @@ class CreateComplaintView(View):
             })
         
         try:
-            # Create complaint
             complaint = Complaint.objects.create(
                 citizen=request.user,
                 description=description,
-                latitude=float(latitude),
-                longitude=float(longitude),
+                latitude=float(latitude) if latitude else 0.0,
+                longitude=float(longitude) if longitude else 0.0,
                 address=address if address else None,
                 status='pending'
             )
             
-            # Save photos
             for photo in photos:
                 ComplaintPhoto.objects.create(
                     complaint=complaint,
