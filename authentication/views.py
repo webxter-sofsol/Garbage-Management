@@ -53,8 +53,7 @@ class RegisterView(View):
             success, message = AuthenticationService.register_or_login(email)
             if success:
                 request.session['pending_email'] = email
-                request.session['otp_timestamp'] = timezone.now().timestamp()
-                request.session.set_expiry(1800)  # 30 minutes for OTP session
+                # Do NOT call set_expiry here — let the global SESSION_COOKIE_AGE (24h) apply
                 messages.success(request, message)
                 logger.info(f"OTP registration initiated for {email}")
                 return redirect('authentication:verify_otp')
@@ -135,9 +134,8 @@ class RegisterPasswordView(View):
             user.set_password(password)
             user.save()
             
-            # Log user in — specify backend explicitly since multiple backends are configured
+            # login() internally calls cycle_key() — do NOT call it again
             login(request, user, backend='authentication.backends.EmailBackend')
-            request.session.cycle_key()
             
             messages.success(request, 'Account created successfully! Welcome to GCMS.')
             logger.info(f"New user registered with password: {email}")
@@ -167,30 +165,13 @@ class VerifyOTPView(View):
         if request.user.is_authenticated:
             return redirect('home')
         
-        # Check if email is in session
         email = request.session.get('pending_email')
-        otp_timestamp = request.session.get('otp_timestamp')
         
         if not email:
             messages.error(request, 'Session expired. Please register or login first.')
             return redirect('authentication:register')
         
-        # Check if OTP session has expired (30 minutes)
-        if otp_timestamp:
-            current_time = timezone.now().timestamp()
-            if current_time - otp_timestamp > 1800:  # 30 minutes
-                # Clear expired session data
-                if 'pending_email' in request.session:
-                    del request.session['pending_email']
-                if 'otp_timestamp' in request.session:
-                    del request.session['otp_timestamp']
-                messages.error(request, 'OTP session expired. Please try again.')
-                return redirect('authentication:register')
-        
-        context = {
-            'email': email
-        }
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, {'email': email})
     
     def post(self, request):
         """Process OTP verification."""
@@ -210,15 +191,11 @@ class VerifyOTPView(View):
         success, message, user = AuthenticationService.verify_and_login(email, otp_code)
         
         if success and user:
-            # Log the user in — specify backend explicitly since multiple backends are configured
+            # login() internally calls cycle_key() in Django 4+ — do NOT call it again
             login(request, user, backend='authentication.backends.OTPBackend')
             
             # Clear pending email from session
-            if 'pending_email' in request.session:
-                del request.session['pending_email']
-            
-            # Regenerate session ID for security
-            request.session.cycle_key()
+            request.session.pop('pending_email', None)
             
             messages.success(request, 'Login successful!')
             logger.info(f"User {email} logged in successfully")
@@ -350,7 +327,7 @@ class PasswordLoginView(View):
         user = authenticate(request, username=email, password=password)
         if user is not None:
             login(request, user)
-            request.session.cycle_key()  # Security: regenerate session ID
+            # login() calls cycle_key() internally — do NOT call it again
             
             messages.success(request, 'Login successful!')
             logger.info(f"User {email} logged in with password")
@@ -442,9 +419,8 @@ class SetPasswordView(View):
         else:
             # Log user in after setting password
             login(request, user, backend='authentication.backends.EmailBackend')
-            request.session.cycle_key()
-            if 'pending_email' in request.session:
-                del request.session['pending_email']
+            # login() calls cycle_key() internally — do NOT call it again
+            request.session.pop('pending_email', None)
             messages.success(request, 'Password set successfully! You are now logged in.')
             logger.info(f"Password set for user {email}")
             if user.is_authority:
@@ -502,8 +478,7 @@ class LoginChoiceView(View):
         elif method == 'otp':
             # Store email and redirect to OTP flow
             request.session['pending_email'] = email
-            request.session['otp_timestamp'] = timezone.now().timestamp()
-            request.session.set_expiry(1800)
+            # Do NOT call set_expiry — let the global SESSION_COOKIE_AGE (24h) apply
             
             # Generate and send OTP
             success, message = AuthenticationService.register_or_login(email)
